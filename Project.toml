@@ -1,0 +1,8 @@
+name = "DNSS"
+uuid = "b42356fa-3272-11ea-3e93-a9d7640218b4"
+authors = ["Soham Mukherjee <smukherjee@perimeterinstitute.ca>"]
+version = "0.1.0"
+
+[deps]
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
