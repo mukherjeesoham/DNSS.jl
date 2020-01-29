@@ -1,6 +1,10 @@
 using DNSS, Test
 
-@test 1 == 1
+libraries = ["Minkowski"]
 
+for file in libraries
+    @info "Testing $file"
+    include("$(file)Test.jl")
+end
 
 

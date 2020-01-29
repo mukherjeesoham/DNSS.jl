@@ -4,7 +4,7 @@
 # Functions to distribute over multiple patches
 #--------------------------------------------------------------------
 
-export Parameters, setup, distribute
+export Parameters, distribute
 
 struct Parameters{T}
     npoints::NTuple{2, Int}
@@ -24,13 +24,14 @@ function setup(params::Parameters{T})::Array{Union{ProductSpace, NTuple{3, Field
     return tree
 end
 
-function distribute(params::Parameters, compute::Function, 
+function distribute(params::Parameters, excise::Function, 
                     computeUboundary::Function, computeVboundary::Function)::Array{Union{ProductSpace, NTuple{3, Field}}}
     tree = setup(params)
     for index in CartesianIndices(tree)
-        if excise?(tree[index]) == true
-            println("Excising patch with bounds: ", range(tree[index]))
+        if excise(tree[index]) == true
+            println(" Excising patch with bounds: ", range(tree[index]))
         else
+            println("Computing patch with bounds: ", range(fetch(tree[index])))
             uboundary = index.I[1] == 1 ?  computeUboundary(tree[index]) : extractUboundary(tree[index - CartesianIndex((1,0))], :outgoing)
             vboundary = index.I[2] == 1 ?  computeVboundary(tree[index]) : extractVboundary(tree[index - CartesianIndex((0,1))], :outgoing)
             tree[index] = compute(tree[index], uboundary, vboundary)
@@ -38,3 +39,5 @@ function distribute(params::Parameters, compute::Function,
     end
     return tree
 end
+
+

@@ -19,5 +19,6 @@ function residual(a::Field{S}, η::Field{S}, ϕ::Field{S})::NTuple{3, Field{S}} 
     F1 = DU*(DV*a) - (1/a)*(DU*a)*(DV*a) + (a/η)*(DU*(DV*η)) + (4pi*a)*(DU*ϕ)*(DV*ϕ)
     F2 = DU*(DV*η) + (1/η)*(DU*η)*(DV*η) + (1/4)*(1/η)*(a^2)
     F3 = DU*(DV*ϕ) + (1/η)*(DU*η)*(DV*ϕ) + (1/η)*(DV*η)*(DU*ϕ)
+    return (F1, F2, F3)
 end
 

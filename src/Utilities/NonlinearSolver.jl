@@ -21,20 +21,23 @@ function compute(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}},
                  vbnd::NTuple{3, Field{S1}})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
 
     function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
-        residual = mix!.(residual(reshapeToTuple(PS, x)), 
-                         incomingboundary(PS), 
-                         combineUVboundary(ubnd, vbnd))
-        fvec[:] = reshapeFromTuple(residual)
+        res = mix!(residual(reshapeToTuple(PS, x)...), 
+                   (incomingboundary(PS)), 
+                   combineUVboundary(ubnd, vbnd, :incoming))
+        fvec[:] = reshapeFromTuple(res)
     end
 
-    us = reshapeToTuple(PS, nlsolve(f!, initialguess(PS); 
+    us = reshapeToTuple(PS, nlsolve(f!, reshapeFromTuple(initialguess(PS)); 
                                     method=:trust_region, 
                                     autodiff=:forward,
-                                    show_trace=debug, 
+                                    show_trace=false, 
                                     ftol=1e-10, 
                                     iterations=100).zero)
 
-    println("\t L2(C1, C2) = ",  L2.(constraints(us...))) : 0
+    if false
+        println("\t L2(C1, C2) = ",  L2.(constraints(us...)))
+    end
+
     return us
 end
 
