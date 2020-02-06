@@ -10,7 +10,7 @@ export find_r_of_UV
 
 function find_t_of_UV(U::T, V::T, M::Number)::T where {T<:Number}
     @assert V > 0   # ensure you're in region I or II
-    @assert U*V < 1 # ensure you don't hit the singularity
+    @assert U*V < T(1) # ensure you don't hit the singularity
     if U*V == 0     # r = 2M 
         t = V       # enforce uniqueness 
     elseif U > 0    # r < 2M
@@ -24,16 +24,16 @@ function find_t_of_UV(U::T, V::T, M::Number)::T where {T<:Number}
 end
 
 function find_r_of_UV(U::T, V::T, M::Number)::T where {T<:Number}
-    @assert V > 0       # ensure you're in region I or II
-    @assert U*V < 1     # ensure you don't hit the singularity
-    if U*V == 0         # r = 2M 
+    @assert V > T(0)       # ensure you're in region I or II
+    @assert U*V < T(1)     # ensure you don't hit the singularity
+    if U*V == T(0)         # r = 2M 
         r = 2M
     else                # r < 2M or r > 2M 
         f(r) = (r/2M - 1)*exp(r/2M) + U*V 
         try
             # r    = find_zero(f, 2M)
             # NOTE: Introduce bracketing
-            if U*V > 0
+            if U*V > T(0)
                 r = find_zero(f, (eps(T), 2*M))
             else
                 # WARNING: Would fail if r > 1000*M

@@ -20,24 +20,25 @@ end
 function compute(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, 
                  vbnd::NTuple{3, Field{S1}})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
 
-    function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
-        res = mix!(residual(reshapeToTuple(PS, x)...), 
-                   (incomingboundary(PS)), 
-                   combineUVboundary(ubnd, vbnd, :incoming))
-        fvec[:] = reshapeFromTuple(res)
-    end
+    # function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
+        # res = mix!(residual(reshapeToTuple(PS, x)...), 
+                   # (incomingboundary(PS)), 
+                   # combineUVboundary(ubnd, vbnd, :incoming))
+        # fvec[:] = reshapeFromTuple(res)
+    # end
 
-    us = reshapeToTuple(PS, nlsolve(f!, reshapeFromTuple(initialguess(PS)); 
-                                    method=:trust_region, 
-                                    autodiff=:forward,
-                                    show_trace=false, 
-                                    ftol=1e-10, 
-                                    iterations=100).zero)
+    # us = reshapeToTuple(PS, nlsolve(f!, reshapeFromTuple(initialguess(PS)); 
+                                    # method=:trust_region, 
+                                    # autodiff=:forward,
+                                    # show_trace=false, 
+                                    # ftol=1e-10, 
+                                    # iterations=100).zero)
 
-    if false
-        println("\t L2(C1, C2) = ",  L2.(constraints(us...)))
-    end
+    # if false
+        # println("\t L2(C1, C2) = ",  L2.(constraints(us...)))
+    # end
 
-    return us
+    # return us
+    return setSchwarzschild(PS)
 end
 

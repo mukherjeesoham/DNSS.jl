@@ -29,3 +29,12 @@ struct ProductSpace{T1, T2}
     S1::T1
     S2::T2
 end
+
+mutable struct Parameters{T}
+    npoints::NTuple{2, Int}
+    npatchs::NTuple{2, Int}
+    ubounds::NTuple{2, T}
+    vbounds::NTuple{2, T}
+end
+
+struct Singularity end

@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------
 
 using LinearAlgebra
-export ⊕, solve, cond, L1, L2
+export ⊕, solve, cond, L1, L2, value, space
 
 function Base. reshape(u::Field{S}) where {S}
     return reshape(u.value, (prod(size(u.space))))
@@ -193,4 +193,12 @@ end
 
 function Base. transpose(u::Field{S})::Field{S} where {S}
     return Field(u.space, transpose(u.value))
+end
+
+function value(u::Field{S, D, T})::Array{T, D} where {S, D, T}
+    return u.value
+end
+
+function space(u::Field{S, D, T})::Array{T, D} where {S, D, T}
+    return u.space
 end
