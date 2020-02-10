@@ -37,6 +37,7 @@ function Field(AoS::T, map::Function) where {T<:Array{Union{NTuple{3, Field}, Pr
 end
 
 function stagger(params::Parameters, tol::Number; maxiter=100)::Parameters
+    # TODO: Check if it's working for different configurations
     ϵ = 0.0
     for iteration in 1:maxiter
         AoS = setup(params)

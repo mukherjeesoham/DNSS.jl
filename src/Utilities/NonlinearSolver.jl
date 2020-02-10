@@ -20,25 +20,33 @@ end
 function compute(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, 
                  vbnd::NTuple{3, Field{S1}})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
 
-    # function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
-        # res = mix!(residual(reshapeToTuple(PS, x)...), 
-                   # (incomingboundary(PS)), 
-                   # combineUVboundary(ubnd, vbnd, :incoming))
-        # fvec[:] = reshapeFromTuple(res)
-    # end
+    B = incomingboundary(PS)
+    DU, DV = derivative(PS)
+    boundarydata = combineUVboundary(ubnd, vbnd, :incoming)
 
-    # us = reshapeToTuple(PS, nlsolve(f!, reshapeFromTuple(initialguess(PS)); 
-                                    # method=:trust_region, 
-                                    # autodiff=:forward,
-                                    # show_trace=false, 
-                                    # ftol=1e-10, 
-                                    # iterations=100).zero)
+    function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
+        interiordata = reshapeToTuple(PS, x)
+        fvec[:] = reshapeFromTuple(mix!(residualforsolver(interiordata..., DU, DV), B, interiordata .- boundarydata))
+    end
 
-    # if false
-        # println("\t L2(C1, C2) = ",  L2.(constraints(us...)))
-    # end
+    if true
+        println("\t L2(C1, C2) before solve = ",  L2.(constraints(initialguess(PS)...)))
+    end
 
-    # return us
-    return setSchwarzschild(PS)
+    F = nlsolve(f!, reshapeFromTuple(initialguess(PS)); 
+                                    method=:trust_region, 
+                                    autodiff=:forward,
+                                    show_trace=true, 
+                                    ftol=1e-11, 
+                                    iterations=100)
+
+    Tuples = reshapeToTuple(PS, F.zero)
+
+    if true
+        println("Solver converged? ", converged(F))
+        println("\t L2(C1, C2) after solve = ",  L2.(constraints(Tuples...)))
+    end
+
+    return Tuples
 end
 

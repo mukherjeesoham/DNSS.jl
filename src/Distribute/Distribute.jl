@@ -23,9 +23,9 @@ function distribute(params::Parameters, excise::Function,
     AoT = setup(params)
     for index in CartesianIndices(AoT)
         if excise(AoT[index]) == true
-            println(" Excising patch with bounds: ", range(AoT[index]))
+            println(" Excising patch with lower and upper bounds: ", range(AoT[index]))
         else
-            println("Computing patch with bounds: ", range(fetch(AoT[index])))
+            println("\nComputing patch with bounds: ", range(fetch(AoT[index])))
             uboundary = index.I[1] == 1 ?  computeUboundary(AoT[index]) : extractUboundary(AoT[index - CartesianIndex((1,0))], :outgoing)
             vboundary = index.I[2] == 1 ?  computeVboundary(AoT[index]) : extractVboundary(AoT[index - CartesianIndex((0,1))], :outgoing)
             AoT[index] = compute(AoT[index], uboundary, vboundary)

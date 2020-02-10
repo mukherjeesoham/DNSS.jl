@@ -25,14 +25,14 @@ end
 
 function excision(PS::ProductSpace{S1, S2})::Bool where {S1, S2}
     r = Field(PS, (u,v)->v-u)
-    return any(abs(r.value) .<= eps(eltype(r.value)))
+    return any(abs.(r.value) .<= eps(eltype(r.value)))
 end
 
 function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
     a = Field(PS, (u,v)->1)
     η = Field(PS, (u,v)->(v-u)/2)
     ϕ = Field(PS, (u,v)->0)
-    return (a, η, ϕ)
+    return (a + 1e-1*sin(η), η, ϕ)
 end
 
 function extractUboundary(PS::ProductSpace{S1, S2}, boundarytype::Symbol)::NTuple{3, Field{S2}} where {S1, S2}

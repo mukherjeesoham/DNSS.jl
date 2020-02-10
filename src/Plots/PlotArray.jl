@@ -30,6 +30,7 @@ function PyPlot. scatter(AoS::T) where {T<:Array{Union{ProductSpace, NTuple{N, F
 end
 
 function plotaxis(params::Parameters)
-    plot(params.vbounds, params.ubounds, "k--", linewidth=0.5)
+    v = collect(range(params.vbounds[1], stop=params=params.vbounds[2], length=3))
+    plot(v, v, "k--", linewidth=0.5)
 end
 

@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------
 
 export Cardinal, PointSpace
-export ChebyshevGL, LegendreGL, FourierEP, Chebyshev
+export ChebyshevGL, LegendreGL, FourierGEP, FourierCEP, Chebyshev
 
 struct ChebyshevGL{Tag, N, T} <: Space{Tag, N} 
     min::T
@@ -19,13 +19,17 @@ struct LegendreGL{Tag, N, T} <: Space{Tag, N}
     LegendreGL{Tag, N, T}(min, max) where {Tag, N, T} = max > min ? new{Tag, N, T}(min, max) : error("bounds are out of order")
 end
 
-struct FourierEP{Tag, N, T} <: Space{Tag, N} 
+struct FourierGEP{Tag, N, T} <: Space{Tag, N} 
     min::T
     max::T
-    FourierEP{Tag, N, T}(min, max) where {Tag, N, T} = new{Tag, N, T}(0, 2*pi) 
+    FourierGEP{Tag, N, T}(min, max) where {Tag, N, T} = new{Tag, N, T}(0, 2*pi) 
 end
 
-Cardinal{Tag, N, T} = Union{ChebyshevGL{Tag, N, T}, LegendreGL{Tag, N, T}, FourierEP{Tag, N, T}} 
+struct FourierCEP{Tag, N, T} <: Space{Tag, N} 
+    min::T
+    max::T
+    FourierCEP{Tag, N, T}(min, max) where {Tag, N, T} = new{Tag, N, T}(0, pi) 
+end
 
 struct Chebyshev{Tag, N, T} <: Space{Tag, N} 
     min::T
@@ -33,3 +37,9 @@ struct Chebyshev{Tag, N, T} <: Space{Tag, N}
     Chebyshev{Tag, N, T}(min, max) where {Tag, N, T} = max > min ? new{Tag, N, T}(min, max) : error("bounds are out of order")
 end
 
+# FIXME: Chebyshev is in Cardinal
+Cardinal{Tag, N, T} = Union{ChebyshevGL{Tag, N, T}, 
+                            LegendreGL{Tag, N, T}, 
+                            FourierGEP{Tag, N, T}, 
+                            FourierCEP{Tag, N, T}, 
+                            Chebyshev{Tag, N, T}} 
