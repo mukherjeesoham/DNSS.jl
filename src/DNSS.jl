@@ -1,42 +1,33 @@
 #--------------------------------------------------------------------
 # DNSS.jl
-# Soham 01-2020
+# Soham 03-2022
 #--------------------------------------------------------------------
 
 module DNSS
 
-include("./Types/AbstractTypes.jl")
+    using PyPlot, NLsolve
 
-include("./Spectral/Basis/BasisTypes.jl")
-include("./Spectral/Basis/ChebyshevGL.jl")
-include("./Spectral/Basis/FourierGEP.jl")
-include("./Spectral/Spaces/1Dspace.jl")
-include("./Spectral/Spaces/2Dspace.jl")
-include("./Spectral/Spaces/AnySpace.jl")
-include("./Spectral/Spaces/ArraySpace.jl")
-include("./Spectral/Utilities/BasisTransform1D.jl")
-include("./Spectral/Utilities/BasisTransform2D.jl")
+    export distribute
+    export Manifold, Space, ProductSpace, SingleSpaces,
+           Field, Operator, U, V, Parameters
+    export plot, contourf
+    export extract, range, Field, stagger
+    export reshapeFromTuple, reshapeToTuple, enforcebc!
+    export setup, distribute
+    export Cardinal, ChebyshevGL, Chebyshev
 
-include("./Utilities/AxiSymmetry.jl")
-include("./Utilities/BoundaryUtils.jl")
-include("./Utilities/NonlinearSolver.jl")
-
-include("./Distribute/Distribute.jl")
-# include("./Distribute/Futures.jl")
-
-include("./Plots/Plot1D.jl")
-include("./Plots/Plot2D.jl")
-include("./Plots/PlotArray.jl")
-
-include("./Physics/InitialData.jl")
-include("./Physics/Residuals.jl")
-include("./Physics/Utilities/Diagnostics.jl")
-include("./Physics/Utilities/DoubleNullCoordinates.jl")
-
-# include("./Physics/Spacetimes/Minkowski.jl")
-include("./Physics/Spacetimes/Collapse.jl")
-# include("./Physics/Spacetimes/Schwarzschild.jl")
-
+    include("AbstractTypes.jl")
+    include("Spectral/ChebyshevGL.jl")
+    include("Spectral/1Dspace.jl")
+    include("Spectral/2Dspace.jl")
+    include("Spectral/AnySpace.jl")
+    include("Spectral/BasisTransform1D.jl")
+    include("Spectral/BasisTransform2D.jl")
+    include("ArraySpace.jl")
+    include("BoundaryUtils.jl")
+    include("SolverUtils.jl")
+    include("Distribute.jl")
+    include("Plots.jl")
 end
 
 

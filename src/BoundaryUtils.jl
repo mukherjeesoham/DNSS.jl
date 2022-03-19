@@ -5,7 +5,6 @@
 #--------------------------------------------------------------------
 
 export extractUboundary, extractVboundary, combineUVboundary
-export enforceincomingboundary
 
 function extractUboundary(u::Field{ProductSpace{S1, S2}}, boundarytype::Symbol)::Field{S2} where {S1, S2}
     @assert ndims(u.value) == 2
@@ -30,16 +29,16 @@ function combineUVboundary(uboundary::Field{S2}, vboundary::Field{S1}, boundaryt
     return uv 
 end
 
-function extractUboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}}, boundarytype::Symbol)::NTuple{3, Field{S2}} where {S1, S2}
+function extractUboundary(u::NTuple{N, Field{ProductSpace{S1, S2}}}, boundarytype::Symbol)::NTuple{N, Field{S2}} where {S1, S2, N}
     return extractUboundary.(u, boundarytype) 
 end
 
-function extractVboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}}, boundarytype::Symbol)::NTuple{3, Field{S1}} where {S1, S2}
+function extractVboundary(u::NTuple{N, Field{ProductSpace{S1, S2}}}, boundarytype::Symbol)::NTuple{N, Field{S1}} where {S1, S2, N}
     return extractVboundary.(u, boundarytype) 
 end
 
-function combineUVboundary(ubnd::NTuple{3, Field{S2}},
-                           vbnd::NTuple{3, Field{S1}}, boundarytype::Symbol)::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
+function combineUVboundary(ubnd::NTuple{N, Field{S2}},
+                           vbnd::NTuple{N, Field{S1}}, boundarytype::Symbol)::NTuple{N, Field{ProductSpace{S1, S2}}} where {S1, S2, N}
     return combineUVboundary.(ubnd, vbnd, boundarytype) 
 end
 

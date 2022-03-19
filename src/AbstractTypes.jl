@@ -3,26 +3,28 @@
 # Soham 08-2018
 # Define the Abstract Types
 #--------------------------------------------------------------------
-
-export Manifold, Space, ProductSpace, SingleSpaces,
-       Field, Operator, U, V
-
 abstract type Manifold{Tag} end
 abstract type Space{Tag, N} <: Manifold{Tag} end
 
 struct U end
 struct V end
 
+"""
+    Struct to hold a field
+    in space S, dimension D and eltype T.
+"""
 struct Field{S, D, T}
     space::S
     value::AbstractArray{T, D}
-    # Field{S, D, T}(space, value) where {S, D, T} = ndims(space) == D ? new{S, D, T}(space, value) : error("Space and Field dimensions don't match")
 end
 
+"""
+    Struct to hold a field
+    in space S, dimension D and eltype T.
+"""
 struct Operator{S, D, T}
     space::S
     value::AbstractArray{T, D}
-    # Operator{S, D, T}(space, value) where {S, D, T} = 2*ndims(space) == D ? new{S, D, T}(space, value) : error("Space and Operator dimensions don't match")
 end
 
 struct ProductSpace{T1, T2}
@@ -35,6 +37,23 @@ mutable struct Parameters{T}
     npatchs::NTuple{2, Int}
     ubounds::NTuple{2, T}
     vbounds::NTuple{2, T}
+    nfields::Int
 end
 
 struct Singularity end
+
+struct ChebyshevGL{Tag, N, T} <: Space{Tag, N} 
+    min::T
+    max::T
+    ChebyshevGL{Tag, N, T}(min, max) where {Tag, N, T} = max > min ? new{Tag, N, T}(min, max) : error("bounds are out of order")
+end
+
+struct Chebyshev{Tag, N, T} <: Space{Tag, N} 
+    min::T
+    max::T
+    Chebyshev{Tag, N, T}(min, max) where {Tag, N, T} = max > min ? new{Tag, N, T}(min, max) : error("bounds are out of order")
+end
+
+Cardinal{Tag, N, T} = Union{ChebyshevGL{Tag, N, T}, 
+                              Chebyshev{Tag, N, T}} 
+
