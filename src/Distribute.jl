@@ -26,10 +26,12 @@ end
     Output: Array of ProductSpace or NTuple of solutions
 """
 function distribute(params::Parameters{T}, computePatch::Function, 
-        computeUboundary::Function, computeVboundary::Function) where {T}
+        computeUboundary::Function, computeVboundary::Function, debug::Bool=false) where {T}
     AoT = setup(params)
     for index in CartesianIndices(AoT)
-        println("\nComputing patch with bounds: ", range(fetch(AoT[index])))
+        if debug == true 
+            println("Computing patch with bounds:", range(fetch(AoT[index]))...)
+        end
         uboundary = index.I[1] == 1 ?  computeUboundary(AoT[index]) : extractUboundary(AoT[index - CartesianIndex((1,0))], :outgoing)
         vboundary = index.I[2] == 1 ?  computeVboundary(AoT[index]) : extractVboundary(AoT[index - CartesianIndex((0,1))], :outgoing)
         AoT[index] = computePatch(AoT[index], uboundary, vboundary)

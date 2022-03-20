@@ -1,18 +1,43 @@
 #--------------------------------------------------------------------
 # DNSS.jl
-# Soham 08-2019
-# Simulate Minkowski spacetime 
-# TODO: Define all the functions needed for distribute locally, 
-# in this file. Expose the barebones of the code.
+# Soham 03-2022
+# Simulate a self-gravitating scalar field
 #--------------------------------------------------------------------
 
 using NLsolve
 using PyPlot
-# parameters = Parameters((12, 12), (1, 1), (-2.0, 2.0), (-2.0, 2.0))
-parameters = stagger(Parameters((12, 12), (2, 2), (-2.0, 2.0), (-2.0, 2.0), 3), 1e-2)
-@show parameters
 
-function constraints_(a::Field{S}, η::Field{S}, ϕ::Field{S})::NTuple{2, Field{S}} where {S}
+# Compute initial data on u0 and v0
+function pulse(u::T , v::T)::T where {T<:Number}
+    p = 1e-6
+    return p*exp(-u^2/0.1) + p*exp(-v^2/0.1)
+end
+
+function computeUboundary_(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
+    a0 = Field(PS, (u,v)->1) 
+    η0 = Field(PS, (u,v)->(v-u)/2) 
+    ϕ0 = Field(PS, (u,v)->pulse(u,v))
+    return computeUboundary((a0, η0, ϕ0))
+end
+
+function computeVboundary_(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
+    a0 = Field(PS, (u,v)->1) 
+    η0 = Field(PS, (u,v)->(v-u)/2) 
+    ϕ0 = Field(PS, (u,v)->pulse(u,v))
+    return computeVboundary((a0, η0, ϕ0))
+end
+
+# Recompute initial data at every patch boundary. 
+# function computeUboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}})::NTuple{3, Field{S2}} where {S1, S2}
+    # return (extractUboundary(u[1], :incoming), solveη(extractUboundary.(u, :incoming)...), extractUboundary(u[3], :incoming))
+# end
+
+# function computeVboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}})::NTuple{3, Field{S1}} where {S1, S2}
+    # return (extractVboundary(u[1], :incoming), solveη(extractVboundary.(u, :incoming)...), extractVboundary(u[3], :incoming))
+# end
+
+
+function constraints(a::Field{S}, η::Field{S}, ϕ::Field{S})::NTuple{2, Field{S}} where {S}
     DU, DV = derivative(a.space)
     C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
     C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
@@ -41,33 +66,7 @@ function lineconstraint(a::Field{S}, η::Field{S}, ϕ::Field{S})::Number where {
     return L2(h)
 end
 
-function computeUboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}})::NTuple{3, Field{S2}} where {S1, S2}
-    return (extractUboundary(u[1], :incoming), solveη(extractUboundary.(u, :incoming)...), extractUboundary(u[3], :incoming))
-end
 
-function computeVboundary(u::NTuple{3, Field{ProductSpace{S1, S2}}})::NTuple{3, Field{S1}} where {S1, S2}
-    return (extractVboundary(u[1], :incoming), solveη(extractVboundary.(u, :incoming)...), extractVboundary(u[3], :incoming))
-end
-
-
-function pulse(u::T , v::T)::T where {T<:Number}
-    p = 1e-6
-    return p*exp(-u^2/0.1) + p*exp(-v^2/0.1)
-end
-
-function computeUboundary_(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
-    a0 = Field(PS, (u,v)->1) 
-    η0 = Field(PS, (u,v)->(v-u)/2) 
-    ϕ0 = Field(PS, (u,v)->pulse(u,v))
-    return computeUboundary((a0, η0, ϕ0))
-end
-
-function computeVboundary_(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
-    a0 = Field(PS, (u,v)->1) 
-    η0 = Field(PS, (u,v)->(v-u)/2) 
-    ϕ0 = Field(PS, (u,v)->pulse(u,v))
-    return computeVboundary((a0, η0, ϕ0))
-end
 
 function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
     a0 = Field(PS, (u,v)->1) 
@@ -137,6 +136,9 @@ function computePatch_(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}},
 end
 
 
+# parameters = Parameters((12, 12), (1, 1), (-2.0, 2.0), (-2.0, 2.0))
+parameters = stagger(Parameters((12, 12), (2, 2), (-2.0, 2.0), (-2.0, 2.0), 3), 1e-2)
+@show parameters
 AoT = distribute(parameters,
                  computePatch_, 
                  computeUboundary_, 

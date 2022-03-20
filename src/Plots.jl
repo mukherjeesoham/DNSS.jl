@@ -6,6 +6,18 @@
 # waste time with this. 
 #--------------------------------------------------------------------
 
+rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+rcParams["font.size"] = 15
+rcParams["text.usetex"] = true
+rcParams["axes.titlesize"] = 18.0
+rcParams["axes.labelsize"] = 15.0
+rcParams["xtick.labelsize"] = 15.0
+rcParams["ytick.labelsize"] = 15.0
+rcParams["legend.fontsize"] =  15.0
+rcParams["figure.figsize"] = (12, 10)
+rcParams["figure.dpi"] = 300
+rcParams["savefig.dpi"] = 300
+
 """
     Plot fields in 1D space
 """
@@ -36,6 +48,31 @@ function PyPlot. contourf(AoF::T, levels::Int) where {T<:Array{Field, 2}}
         end
     end
     colorbar()
-    xlabel("v")
-    ylabel("u")
+    xlabel(L"$v$")
+    ylabel(L"$u$")
+    savefig("../output/minkowski_psi_$(randstring(MersenneTwister(3), 'a':'z', 6)).pdf")
+    close()
 end
+
+"""
+Plot p convergence
+"""
+function plotpconv(n_::Vector, l_::Vector)
+    plot(n_, l_)
+    xlabel(L"$p$")
+    ylabel(L"$L_{2}(u - u_{0}) $")
+    savefig("../output/minkowski-hconv.pdf")
+    close()
+end
+
+"""
+Plot h convergence
+"""
+function plothconv(n_::Vector, l_::Vector)
+    plot(n_, l_)
+    xlabel(L"$2^h$")
+    ylabel(L"$L_{2}(u - u_{0}) $")
+    savefig("../output/minkowski-hconv.pdf")
+    close()
+end
+

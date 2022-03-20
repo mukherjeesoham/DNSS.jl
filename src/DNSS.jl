@@ -5,12 +5,12 @@
 
 module DNSS
 
-    using PyPlot, NLsolve
+    using PyPlot, NLsolve, Random, LaTeXStrings
 
     export distribute
     export Manifold, Space, ProductSpace, SingleSpaces,
            Field, Operator, U, V, Parameters
-    export plot, contourf
+    export plot, contourf, plotpconv, plothconv
     export extract, range, Field, stagger
     export reshapeFromTuple, reshapeToTuple, enforcebc!
     export setup, distribute

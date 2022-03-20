@@ -5,7 +5,7 @@
 #--------------------------------------------------------------------
 
 using LinearAlgebra
-export ⊕, solve, cond, L1, L2, value, space
+export ⊕, solve, cond, lpnorm, value, space
 
 function Base. reshape(u::Field{S}) where {S}
     return reshape(u.value, (prod(size(u.space))))
@@ -135,17 +135,17 @@ function Base. display(u::Field{S}) where {S}
     println()
 end
 
-function L1(u::Field{S})::Number where {S}
-    return maximum(abs(u))
-end
-
 function Base. sum(u::Field{S})::Number  where {S}
     return sum(reshape(u))
 end
 
-function L2(u::Field{S})::Number where {S}
+function lpnorm(u::Field{S}, p::Int=2)::Number where {S}
     W = integral(u.space)
-    return sqrt(sum(W*(u^2)))
+    return sqrt(sum(W*(u^p)))
+end
+
+function LinearAlgebra. norm(u::Field{S})::Real where {S}
+    return norm(u.value)
 end
 
 function  ⊕(u::Field{S}, v::Field{S})::Field{S} where {S}
