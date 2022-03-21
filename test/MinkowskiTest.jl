@@ -8,8 +8,8 @@
 # TODO: Check with the linear solver
 # TODO: Check how we were computing the error there. 
 
-using NLsolve, LinearAlgebra, Random
-using PyPlot, LaTeXStrings, Printf
+using Test, NLsolve, LinearAlgebra, Random
+using LaTeXStrings, Printf, PyPlot
 
 #-----------------------------------------
 # Set up initial conditions on u0 and v0
@@ -66,16 +66,22 @@ end
 #-----------------------------------------
 # Compare with analytic solution
 #-----------------------------------------
-function L2(psi::Field{S})::Real where {S}
-    return norm(psi - Field(psi.space, psibar))
+
+function constraints(U::NTuple{1, Field{S}})::Field{S} where {S}
+    psi = first(U)
+    return psi - Field(psi.space, psibar)
 end
 
-function L2(AoF::Matrix{Field})::Real where {S}
-    return norm([L2(AoF[index]) for index in CartesianIndices(AoF)])
+function constraints(AoT::Matrix{Union{NTuple{1, Field}, ProductSpace}})::Matrix{Field} 
+    return [constraints(AoT[index]) for index in CartesianIndices(AoT)]
+end
+
+function rmse(AoT::Matrix{Union{NTuple{1, Field}, ProductSpace}})::Real
+    return norm(norm.(constraints(AoT)))
 end
 
 #-----------------------------------------
-# h and p convergence helper 
+# h and p convergence functions 
 #-----------------------------------------
 function pconv(min, max)
     println("Testing p convergence")
@@ -83,24 +89,23 @@ function pconv(min, max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         n = n_[index]
-        l_[index]  =  L2(extract(distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd), 1))
-        @printf("  n = %i, L2 error = %e\n", n_[index], l_[index])
+        l_[index]  =  rmse(distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd))
+        @printf("  n = %i, rmse = %e\n", n_[index], l_[index])
     end
-    plotpconv(n_, l_)
+    plotpconv(n_, l_, "../output/minkowski-psi-pconv.pdf")
 end
 
 function hconv(min, max)
     println("Testing h convergence")
-    println("Testing p convergence")
     n_ = collect(min:max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         np = 2^n_[index]
-        l_[index] =  L2(extract(distribute(Parameters((4, 4), (np, np), urange, vrange, nfields), compute, ubnd, vbnd), 1))
         n_[index] =  np
-        @printf("  n = %2i, L2 error = %e\n", n_[index], l_[index])
+        l_[index] =  rmse(distribute(Parameters((4, 4), (np, np), urange, vrange, nfields), compute, ubnd, vbnd))
+        @printf("  n = %2i,rmse = %e\n", n_[index], l_[index])
     end
-    plotpconv(n_, l_)
+    plothconv(n_, l_, "../output/minkowski-psi-hconv.pdf")
 end
 
 #-----------------------------------------
@@ -117,13 +122,12 @@ Grid = Parameters(npoints, npatches, urange, vrange, nfields)
 # Compute the scalar field over the grid
 #-----------------------------------------
 ϕ_ = distribute(Grid, compute, ubnd, vbnd)
-ϕ  = extract(ϕ_, 1)
-@test L2(ϕ) < 1e-12
+@test rmse(ϕ_) < 1e-12
 
 #-----------------------------------------
 # Plot the scalar field
 #-----------------------------------------
-contourf(ϕ, 20)
+contourf(extract(ϕ_, 1), 20, "../output/minkowski-psi.pdf")
 
 #-----------------------------------------
 # Now test h-p convergence

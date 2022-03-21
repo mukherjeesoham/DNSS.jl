@@ -4,8 +4,7 @@
 # Define operations for ND spaces
 #--------------------------------------------------------------------
 
-using LinearAlgebra
-export ⊕, solve, cond, lpnorm, value, space
+export value, space, linsolve, norm
 
 function Base. reshape(u::Field{S}) where {S}
     return reshape(u.value, (prod(size(u.space))))
@@ -52,11 +51,6 @@ function Base. *(a::Number, B::Operator{S})::Operator{S} where {S}
     return reshape(B.space, eltype(reshape(B))(a).*reshape(B))
 end
 
-function solve(A::Operator{S}, u::Field{S})::Field{S} where {S}
-    @assert range(A.space) == range(u.space)
-    return reshape(A.space, reshape(A)\reshape(u))
-end
-
 function Base. isapprox(u::Field{S}, v::Field{S})::Bool where {S}
     @assert range(u.space) == range(v.space)
     return u.value ≈ v.value
@@ -70,26 +64,6 @@ end
 function Base. /(u::Field{S}, v::Field{S})::Field{S} where {S}
     @assert range(u.space) == range(v.space)
     return reshape(u.space, reshape(u)./reshape(v))
-end
-
-function  ⊕(A::Operator{S}, B::Operator{S})::Operator{S} where {S}
-    @assert range(A.space) == range(B.space)
-    ID = identity(A.space)
-    return (ID - B)*A + B
-end
-
-function  ⊕(A::Operator{S}, B::Operator{S}, C::Operator{S})::Operator{S} where {S}
-    @assert range(A.space) == range(B.space)
-    ID = identity(A.space)
-    return (ID - B)*A + B*C
-end
-
-function LinearAlgebra. cond(A::Operator{S}) where {S}
-    return cond(reshape(A))
-end
-
-function LinearAlgebra. eigvals(A::Operator{S}) where {S}
-    return sort(abs.(eigvals(reshape(A))))
 end
 
 function Base. +(u::Field{S}, v::Field{S})::Field{S} where {S}
@@ -139,22 +113,6 @@ function Base. sum(u::Field{S})::Number  where {S}
     return sum(reshape(u))
 end
 
-function lpnorm(u::Field{S}, p::Int=2)::Number where {S}
-    W = integral(u.space)
-    return sqrt(sum(W*(u^p)))
-end
-
-function LinearAlgebra. norm(u::Field{S})::Real where {S}
-    return norm(u.value)
-end
-
-function  ⊕(u::Field{S}, v::Field{S})::Field{S} where {S}
-    @assert range(u.space) == range(v.space)
-    I = identity(u.space)
-    B = incomingboundary(u.space)
-    return (I - B)*v + B*u
-end
-
 function Base. -(u::Field{S})::Field{S} where {S}
     return reshape(u.space, -reshape(u))
 end
@@ -195,10 +153,47 @@ function Base. transpose(u::Field{S})::Field{S} where {S}
     return Field(u.space, transpose(u.value))
 end
 
+function LinearAlgebra. cond(A::Operator{S}) where {S}
+    return cond(reshape(A))
+end
+
+function LinearAlgebra. eigvals(A::Operator{S}) where {S}
+    return sort(abs.(eigvals(reshape(A))))
+end
+
+function LinearAlgebra. norm(u::Field{S}, p::Int=2)::Number where {S}
+    W = integral(u.space)
+    return sqrt(sum(W*(u^p)))
+end
+
 function value(u::Field{S, D, T})::Array{T, D} where {S, D, T}
     return u.value
 end
 
 function space(u::Field{S, D, T})::Array{T, D} where {S, D, T}
     return u.space
+end
+
+function linsolve(A::Operator{S}, u::Field{S})::Field{S} where {S}
+    @assert range(A.space) == range(u.space)
+    return reshape(A.space, reshape(A)\reshape(u))
+end
+
+function  ⊕(A::Operator{S}, B::Operator{S})::Operator{S} where {S}
+    @assert range(A.space) == range(B.space)
+    ID = identity(A.space)
+    return (ID - B)*A + B
+end
+
+function  ⊕(A::Operator{S}, B::Operator{S}, C::Operator{S})::Operator{S} where {S}
+    @assert range(A.space) == range(B.space)
+    ID = identity(A.space)
+    return (ID - B)*A + B*C
+end
+
+function  ⊕(u::Field{S}, v::Field{S})::Field{S} where {S}
+    @assert range(u.space) == range(v.space)
+    I = identity(u.space)
+    B = incomingboundary(u.space)
+    return (I - B)*v + B*u
 end

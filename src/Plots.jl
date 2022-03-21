@@ -38,7 +38,7 @@ end
 """
     Plot fields in 2D array space
 """
-function PyPlot. contourf(AoF::T, levels::Int) where {T<:Array{Field, 2}}
+function PyPlot. contourf(AoF::T, levels::Int, path::String) where {T<:Array{Field, 2}}
     globalmin = minimum(AoF)
     globalmax = maximum(AoF)
     globallevels = collect(range(globalmin, stop=globalmax, length=levels))
@@ -50,29 +50,29 @@ function PyPlot. contourf(AoF::T, levels::Int) where {T<:Array{Field, 2}}
     colorbar()
     xlabel(L"$v$")
     ylabel(L"$u$")
-    savefig("../output/minkowski_psi_$(randstring(MersenneTwister(3), 'a':'z', 6)).pdf")
+    savefig("$path")
     close()
 end
 
 """
 Plot p convergence
 """
-function plotpconv(n_::Vector, l_::Vector)
+function plotpconv(n_::Vector, l_::Vector, path::String)
     plot(n_, l_)
     xlabel(L"$p$")
     ylabel(L"$L_{2}(u - u_{0}) $")
-    savefig("../output/minkowski-hconv.pdf")
+    savefig("$path")
     close()
 end
 
 """
 Plot h convergence
 """
-function plothconv(n_::Vector, l_::Vector)
+function plothconv(n_::Vector, l_::Vector, path::String)
     plot(n_, l_)
     xlabel(L"$2^h$")
     ylabel(L"$L_{2}(u - u_{0}) $")
-    savefig("../output/minkowski-hconv.pdf")
+    savefig("$path")
     close()
 end
 
