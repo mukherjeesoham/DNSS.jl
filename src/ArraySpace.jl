@@ -57,26 +57,12 @@ function Field(AoS::Array{Union{ProductSpace, NTuple{N,Field}}, 2}, map::Functio
 end
 
 """
-    Shift the coordinates in v, i.e, 
-    v + δ such that none of the grid points
-    min(r) > tol
-    Input: Parameters, tol (how close to origin a grid point can be), Iterations
-    Output: New param struct [Q: Is this why the struct Parameters is mutable?]
+Compute the root-mean-square error over the whole grid. 
+For each individual patch use spectral integration, and for the whole
+grid use a standard L2 norm.
 """
-function stagger(params::Parameters, tol::Number; maxiter=100)::Parameters
-    ϵ = 0.0
-    for iteration in 1:maxiter
-        AoS = setup(params)
-        AoF = Field(AoS, (u,v)->abs(v-u))
-        if minimum(AoF) > tol
-            println("Found ϵ that works! ", ϵ)
-            println("Distance from the origin ", minimum(AoF))
-            return params
-        else
-            ϵ = ϵ + tol 
-            params.vbounds = params.vbounds .+ ϵ
-        end
-    end
-    println("Could not find ϵ that works")
-    return params
+# function rmse(AoF::Matrix{Field{ProductSpace{S1, S2}}})::Real where {S1, S2}
+function rmse(AoF::Matrix{T})::Real  where {T<:Field}
+    return norm(norm.(AoF))
 end
+

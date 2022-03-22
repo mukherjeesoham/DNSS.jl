@@ -1,6 +1,6 @@
 using DNSS, Test
 
-libraries = ["Minkowski", "Collapse"]
+libraries = ["Minkowski"]
 
 for file in libraries
     @info "Testing $file"

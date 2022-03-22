@@ -4,8 +4,6 @@
 # Define operations for ND spaces
 #--------------------------------------------------------------------
 
-export value, space, linsolve, norm
-
 function Base. reshape(u::Field{S}) where {S}
     return reshape(u.value, (prod(size(u.space))))
 end
@@ -161,9 +159,9 @@ function LinearAlgebra. eigvals(A::Operator{S}) where {S}
     return sort(abs.(eigvals(reshape(A))))
 end
 
-function LinearAlgebra. norm(u::Field{S}, p::Int=2)::Number where {S}
+function LinearAlgebra. norm(u::Field{S})::Number where {S}
     W = integral(u.space)
-    return sqrt(sum(W*(u^p)))
+    return sqrt(sum(W*(u*u)))
 end
 
 function value(u::Field{S, D, T})::Array{T, D} where {S, D, T}
