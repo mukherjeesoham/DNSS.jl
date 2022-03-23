@@ -84,11 +84,11 @@ end
 # Compare with analytic solution
 #-----------------------------------------
 
-function deltapsi(U::NTuple{1, Field})::Field where {S}
+function deltapsi(U::NTuple{1, Field})::NTuple{1, Field} where {S}
     # Compute the error at twice the number of points
     psi = project(first(U), prolongate(first(U).space))
     psiexact = Field(psi.space, psibar)
-    return psi - psiexact 
+    return (psi - psiexact, ) 
 end
 
 #-----------------------------------------
@@ -100,7 +100,7 @@ function pconv(min, max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         n = n_[index]
-        l_[index]  =  rmse(map(deltapsi, distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd)))
+        l_[index]  =  rmse(extract(map(deltapsi, distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd)), 1))
         @printf("  n = %i,  rmse = %e\n", n_[index], l_[index])
     end
     plotpconv(n_, l_, "../output/minkowski-psi-pconv.pdf")
@@ -113,7 +113,7 @@ function hconv(min, max)
     for index in CartesianIndices(n_) 
         np = 2^n_[index]
         n_[index] =  np
-        l_[index] =  rmse(map(deltapsi, distribute(Parameters((4, 4), (np, np), urange, vrange, nfields), compute, ubnd, vbnd)))
+        l_[index] =  rmse(extract(map(deltapsi, distribute(Parameters((4, 4), (np, np), urange, vrange, nfields), compute, ubnd, vbnd)), 1))
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
         @printf("  n = %3i, rmse = %e\n", n_[index], l0 / l_[index])
     end
@@ -137,13 +137,13 @@ compute = nonlin
 # Compute the scalar field over the grid
 #-----------------------------------------
 ϕ_ = distribute(Grid, compute, ubnd, vbnd)
-k = map(deltapsi, ϕ_)
-@test rmse(map(deltapsi, ϕ_)) < 1e-9
+@test rmse(extract(map(deltapsi, ϕ_), 1)) < 1e-9
 
 #-----------------------------------------
-# Plot the scalar field
+# Plot the scalar field and the error
 #-----------------------------------------
 contourf(extract(ϕ_, 1), 20, "../output/minkowski-psi.pdf")
+contourf(extract(map(deltapsi, ϕ_), 1), 20, "../output/minkowski-psi-error.pdf")
 
 #-----------------------------------------
 # Now test h-p convergence

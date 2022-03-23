@@ -58,7 +58,7 @@ end
 Plot p convergence
 """
 function plotpconv(n_::Vector, l_::Vector, path::String)
-    plot(n_, l_)
+    semilogy(n_, l_, "o--")
     xlabel(L"$p$")
     ylabel(L"$L_{2}(u - u_{0}) $")
     savefig("$path")
@@ -69,7 +69,9 @@ end
 Plot h convergence
 """
 function plothconv(n_::Vector, l_::Vector, path::String)
-    plot(n_, l_)
+    for index in 2:length(l_) 
+        plot(n_[index], l_[index - 1] / l_[index], "o--")
+    end
     xlabel(L"$2^h$")
     ylabel(L"$L_{2}(u - u_{0}) $")
     savefig("$path")

@@ -14,7 +14,7 @@ using NLsolve, Printf
 #----------------------------------------------
 function phi(u::T , v::T)::T where {T<:Number}
     p = 1e-6
-    return p*exp(-u^2/0.1) + p*exp(-v^2/0.1)
+    return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
 end
 
 function computeη(a::Field{S}, η::Field{S}, ϕ::Field{S})::Field{S} where {S<:Space{Tag}} where {Tag}
@@ -56,7 +56,7 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
         F2 = DU*(DV*η) + (1/η)*(DU*η)*(DV*η) + (1/4)*(1/η)*(a^2)
         F3 = DU*(DV*ϕ) + (1/η)*(DU*η)*(DV*ϕ) + (1/η)*(DV*η)*(DU*ϕ)
 
-        # TODO: This is SLOW. Speed this up by replacing the residual in place. 
+        # TODO: This is SLOW. Speed this up by enforcing the boundary conditions in place? 
         F1 = (I - B) * F1 + B*(a - abnd)
         F2 = (I - B) * F2 + B*(η - ηbnd)
         F3 = (I - B) * F3 + B*(ϕ - ϕbnd)
@@ -76,27 +76,24 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
 
     # Call the non-linear solver
     U0 = reshapeFromTuple(initialguess(PS))
-    U = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-9, iterations=100)
+    U  = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-9, iterations=100)
     return reshapeToTuple(PS, 3, U.zero)
 end
 
 #----------------------------------------------
 # Constraint equations and convergence 
 #----------------------------------------------
-function constraints(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(a.space)
+function constraints(U::NTuple{3, Field})::NTuple{1, Field}
+    # Compute the constraint residuals with a larger number of points.
+    PS = prolongate(first(U).space)
+    DU, DV = derivative(PS)
+    a = project(U[1], PS) 
+    η = project(U[2], PS) 
+    ϕ = project(U[3], PS) 
+    
     C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
     C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
-    return sqrt(C1*C1 + C2*C2)
-end
-
-function constraints(AoT::Matrix{Union{NTuple{3, Field}, ProductSpace}})::Matrix{Field} 
-    return [constraints(AoT[index]) for index in CartesianIndices(AoT)]
-end
-
-function rmse(AoT::Matrix{Union{NTuple{3, Field}, ProductSpace}})::Real
-    return norm(norm.(constraints(AoT)))
+    return (sqrt(C1*C1 + C2*C2), )
 end
 
 function pconv(min, max)
@@ -105,7 +102,9 @@ function pconv(min, max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         n = n_[index]
-        l_[index] = rmse(distribute(Parameters((n, n), (1,1), urange, vrange, nfields), computePatch, computeUboundary, computeVboundary))
+        # FIXME: Wait!? Why aren't we having issues with zeros?
+        params = adjust(Parameters((n, n), (1,1), urange, vrange, nfields), 1e-2)
+        l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         @printf("  n = %i, rmse = %e\n", n_[index], l_[index])
     end
     plotpconv(n_, l_, "../output/vaidya-constraints-pconv.pdf")
@@ -118,37 +117,31 @@ function hconv(min, max)
     for index in CartesianIndices(n_) 
         np = 2^n_[index]
         n_[index] = np
-        l_[index] = rmse(distribute(Parameters((4, 4), (np,np), urange, vrange, nfields), computePatch, computeUboundary, computeVboundary))
-        @printf("  n = %2i, rmse = %e\n", n_[index], l_[index])
+        params = adjust(Parameters((6, 6), (np,np), urange, vrange, nfields), 1e-2)
+        l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
+        l0 = index[1] > 1 ? l_[index[1] - 1] : 1
+        @printf("  n = %3i, rmse[2h] / rmse[h] = %e\n", n_[index], l0 / l_[index])
     end
     plothconv(n_, l_, "../output/minkowski-constraints-hconv.pdf")
 end
 #-----------------------------------------
-# Setup simulation grid parameters and
-# call distribute.
+# Setup simulation grid parameters, 
+# call distribute and plot solutions
 #-----------------------------------------
-npoints  = (4, 4)
-npatches = (2, 2) 
+npoints  = (24, 24)
+npatches = (1, 1) 
 urange   = (-1.0, 1.0)
 vrange   = (-1.0, 1.0) 
 nfields  = 3
 params   = adjust(Parameters(npoints, npatches, urange, vrange, nfields), 1e-2)
-
-#-----------------------------------------
-# Cover the grid
-#-----------------------------------------
 U = distribute(params, computePatch, computeUboundary, computeVboundary)
-@show rmse(U)
-
-#-----------------------------------------
-# Plot the solutions and constraints
-#-----------------------------------------
+@show rmse(extract(map(constraints, U), 1))
 contourf(extract(U, 3), 20, "../output/vaidya-psi.pdf")
-contourf(constraints(U), 20, "../output/vaidya-constraints-vector-norm.pdf")
+contourf(extract(map(constraints, U), 1), 20, "../output/vaidya-constraints.pdf")
 
 #-----------------------------------------
 # Check and plot convergence
 #-----------------------------------------
-pconv(4, 8)
-hconv(0, 5)
+# pconv(14, 20)
+# hconv(0, 4)
 

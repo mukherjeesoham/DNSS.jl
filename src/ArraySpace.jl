@@ -11,7 +11,7 @@
     Input: Array of Tuples (AoT)
     Output: Array of Field (AoF)
 """
-function extract(AoT::Array{Union{ProductSpace, NTuple{N, Field}}, 2}, ID::Int)::Array{Field, 2} where {N} 
+function extract(AoT::Array{T, 2}, ID::Int)::Array{Field, 2} where T<:Union{ProductSpace, NTuple{N, Field}} where {N}
     AoF = Array{Field, 2}(undef, size(AoT))
     for index in CartesianIndices(AoT)
         try
@@ -61,8 +61,7 @@ Compute the root-mean-square error over the whole grid.
 For each individual patch use spectral integration, and for the whole
 grid use a standard L2 norm.
 """
-# function rmse(AoF::Matrix{Field{ProductSpace{S1, S2}}})::Real where {S1, S2}
-function rmse(AoF::Matrix{T})::Real  where {T<:Field}
+function rmse(AoF::Matrix{Field})::Real
     return norm(norm.(AoF))
 end
 
