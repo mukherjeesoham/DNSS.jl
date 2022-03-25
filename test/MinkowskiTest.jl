@@ -3,8 +3,6 @@
 # Soham 08-2019
 # Test scalar field on Minkowski spacetime
 #--------------------------------------------------------------------
-# TODO: Evaluate the residual at twice the number of grid points.
-# TODO: Change the function 
 
 using Test, NLsolve, LinearAlgebra, Random
 using LaTeXStrings, Printf, PyPlot
