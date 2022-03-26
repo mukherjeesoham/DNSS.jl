@@ -5,7 +5,7 @@
 
 module DNSS
 
-    using PyPlot, NLsolve, Random, LaTeXStrings, LinearAlgebra
+    using PyPlot, NLsolve, Random, LaTeXStrings, LinearAlgebra, Printf
 
     export distribute
     export Manifold, Space, ProductSpace, SingleSpaces,

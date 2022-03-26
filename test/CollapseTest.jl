@@ -14,13 +14,14 @@ function phi(u::T , v::T)::T where {T<:Number}
     return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
 end
 
-function computeη(a::Field{S}, η::Field{S}, ϕ::Field{S})::Field{S} where {S<:Space{Tag}} where {Tag}
+function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where {Tag}
+    (a, η, ϕ) = U
     D = derivative(a.space)
     I = identity(a.space)
     B = incomingboundary(a.space) + outgoingboundary(a.space)
     A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
     η = linsolve((I - B)*A + B, B*η)
-    @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < 1e-6
+    # @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < 1e-6
     return η
 end
 
@@ -28,14 +29,29 @@ function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where 
     a0 = extractUboundary(Field(PS, (u,v)->1), :incoming) 
     η0 = extractUboundary(Field(PS, (u,v)->(v-u)/2), :incoming)
     ϕ0 = extractUboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
-    return (a0, computeη(a0, η0, ϕ0), ϕ0)
+    return (a0, computeη((a0, η0, ϕ0)), ϕ0)
 end
 
 function computeVboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
     a0 = extractVboundary(Field(PS, (u,v)->1), :incoming) 
     η0 = extractVboundary(Field(PS, (u,v)->(v-u)/2), :incoming)
     ϕ0 = extractVboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
-    return (a0, computeη(a0, η0, ϕ0), ϕ0)
+    return (a0, computeη((a0, η0, ϕ0)), ϕ0)
+end
+
+#----------------------------------------------
+# Compute the Ricci scalar and the Hawking mass 
+#----------------------------------------------
+function R(U::NTuple{3, Field{S}})::Field{S} where {S}
+    (a, η, ϕ) = U
+    DU, DV = derivative(first(U).space)
+    return - (8 * (DU * ϕ) * (DV * ϕ)) / a^2  
+end
+
+function M(U::NTuple{3, Field{S}})::Field{S} where {S}
+    (a, η, ϕ) = U
+    DU, DV = derivative(first(U).space)
+    return (η / 2) * (1 + (4 * (DU * η ) * (DV * η)) / η^2) 
 end
 
 #----------------------------------------------
@@ -48,13 +64,13 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     Ubnd = combineUVboundary(ubnd, vbnd, :incoming)
 
     function enforceregularity!(U::NTuple{3, Field{S}}, Ũ::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
-        r = Field(a.space, (u,v)->v-u) 
+	r = Field(first(U).space, (u,v)->v-u) 
         for index in CartesianIndices(r.value)
             # Replace points at r == 0.
             if r.value[index] == 0.0
-                U[1][index] = Ũ[1][index]
-                U[2][index] = Ũ[2][index]
-                U[3][index] = Ũ[3][index]
+                U[1].value[index] = Ũ[1].value[index]
+                U[2].value[index] = Ũ[2].value[index]
+                U[3].value[index] = Ũ[3].value[index]
             end
         end
         return U 
@@ -73,8 +89,13 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
         F̃1 = (DU*η) * (DV*η) - (1/4) * a^2
         F̃2 = DU*η + DV*η
         F̃3 = DU*ϕ - DV*ϕ
-        F̃  = (F̃1, F̃2, F̃3)
 
+        # Residuals on axis [using L'Hospital rule on terms that blow up] 
+        # F̃1 = DU*(DV*a) - (1/a)*(DU*a)*(DV*a) + (a/(DU *DV * η)) * (DU * DV * (DU*(DV*η))) + (4pi*a)*(DU*ϕ)*(DV*ϕ)
+        # F̃2 = DU*(DV*η) + (1/(DU*DV*η)) * ((DU * DV) * ((DU*η)*(DV*η) + (1/4)*(a^2)))
+        # F̃3 = DU*(DV*ϕ) + (1/(DU*DV*η)) * ((DU * DV) * ((DU*η) * (DV*ϕ)) +  (DV*η) * (DU*ϕ))
+
+        F̃  = (F̃1, F̃2, F̃3)
         return enforcebc!(enforceregularity!(F, F̃), B, U .- Ubnd) 
     end
 
@@ -91,8 +112,12 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
 
     # Call the non-linear solver
     U0 = reshapeFromTuple(initialguess(PS))
-    U  = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-9, iterations=100)
-    return reshapeToTuple(PS, 3, U.zero)
+    sol = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-9, iterations=100)
+    ToF = reshapeToTuple(PS, 3, sol.zero)
+    println("    maximum(R) = ", maximum(R(ToF)))
+    println("    maximum(M) = ", maximum(M(ToF)))
+    println("    maximum(C) = ", norm(constraints(ToF)))
+    return ToF
 end
 
 #----------------------------------------------
@@ -138,11 +163,12 @@ function hconv(min, max)
     end
     plothconv(n_, l_, "../output/minkowski-constraints-hconv.pdf")
 end
+
 #-----------------------------------------
 # Setup simulation grid parameters, 
 # call distribute and plot solutions
 #-----------------------------------------
-npoints  = (14, 14)
+npoints  = (18, 18)
 npatches = (1, 1) 
 urange   = (-1.0, 1.0)
 vrange   = (-1.0, 1.0) 
@@ -156,6 +182,6 @@ contourf(extract(map(constraints, U), 1), 20, "../output/vaidya-constraints.pdf"
 #-----------------------------------------
 # Check and plot convergence
 #-----------------------------------------
-pconv(2, 22)
+# pconv(2, 22)
 # hconv(0, 6)
 
