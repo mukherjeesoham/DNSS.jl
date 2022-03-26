@@ -54,6 +54,12 @@ function M(U::NTuple{3, Field{S}})::Field{S} where {S}
     return (η / 2) * (1 + (4 * (DU * η ) * (DV * η)) / η^2) 
 end
 
+function expansion(U::NTuple{3, Field{S}})::Field{S} where {S}
+    (a, η, ϕ) = U
+    DU, DV = derivative(first(U).space)
+    return (DV * η) 
+end
+
 #----------------------------------------------
 # Compute function on each patch 
 #----------------------------------------------
@@ -114,9 +120,10 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     U0 = reshapeFromTuple(initialguess(PS))
     sol = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-9, iterations=100)
     ToF = reshapeToTuple(PS, 3, sol.zero)
-    println("    maximum(R) = ", maximum(R(ToF)))
-    println("    maximum(M) = ", maximum(M(ToF)))
-    println("    maximum(C) = ", norm(constraints(ToF)))
+    println("    maximum(Ricci Scalar) = ", maximum(R(ToF)))
+    println("    maximum(Hawking Mass) = ", maximum(M(ToF)))
+    println("    maximum(Constraints)  = ", norm(constraints(ToF)))
+    println("    minimum(expansion)    = ", norm(constraints(ToF)))
     return ToF
 end
 
@@ -168,13 +175,14 @@ end
 # Setup simulation grid parameters, 
 # call distribute and plot solutions
 #-----------------------------------------
-npoints  = (18, 18)
-npatches = (1, 1) 
-urange   = (-1.0, 1.0)
-vrange   = (-1.0, 1.0) 
+npoints  = (15, 15)
+npatches = (3, 3) 
+urange   = (0.0, 2.0)
+vrange   = (0.0, 2.0) 
 nfields  = 3
+nprocs   = 3
 params   = Parameters(npoints, npatches, urange, vrange, nfields)
-U = distribute(params, computePatch, computeUboundary, computeVboundary)
+U = distribute_(params, computePatch, computeUboundary, computeVboundary)
 @show rmse(extract(map(constraints, U), 1))
 contourf(extract(U, 3), 20, "../output/vaidya-psi.pdf")
 contourf(extract(map(constraints, U), 1), 20, "../output/vaidya-constraints.pdf")

@@ -5,15 +5,14 @@
 
 module DNSS
 
-    using PyPlot, NLsolve, Random, LaTeXStrings, LinearAlgebra, Printf
+    using PyPlot, NLsolve, Random, LaTeXStrings, LinearAlgebra, Printf, Distributed
 
-    export distribute
     export Manifold, Space, ProductSpace, SingleSpaces,
            Field, Operator, U, V, Parameters
     export plot, contourf, plotpconv, plothconv
     export extract, range, Field, adjust, rmse
     export reshapeFromTuple, reshapeToTuple, enforcebc!
-    export setup, distribute
+    export distribute, distribute_
     export Cardinal, ChebyshevGL, Chebyshev
     export value, space, linsolve, norm
     export basistransform, project, prolongate, restrict 
