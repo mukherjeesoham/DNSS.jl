@@ -1,11 +1,8 @@
 #--------------------------------------------------------------------
 # DNSS.jl
 # Soham 03-2022
-# Simulate a self-gravitating scalar field
+# Simulate the collapse of a self-gravitating scalar field
 #--------------------------------------------------------------------
-# TODO: Try solving for a instead of η
-# TODO: Check how you computed the error for the Minkowski case. You might 
-# need factors of N and h in the error.
 
 using NLsolve, Printf
 
@@ -13,7 +10,7 @@ using NLsolve, Printf
 # Compute initial data
 #----------------------------------------------
 function phi(u::T , v::T)::T where {T<:Number}
-    p = 1e-6
+    p = 0.001
     return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
 end
 
@@ -23,7 +20,7 @@ function computeη(a::Field{S}, η::Field{S}, ϕ::Field{S})::Field{S} where {S<:
     B = incomingboundary(a.space) + outgoingboundary(a.space)
     A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
     η = linsolve((I - B)*A + B, B*η)
-    @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < 1e-10
+    @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < 1e-6
     return η
 end
 
@@ -48,19 +45,37 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     B = incomingboundary(PS)
     I = identity(PS)
     DU, DV = derivative(PS)
-    (abnd, ηbnd, ϕbnd) = combineUVboundary(ubnd, vbnd, :incoming)
+    Ubnd = combineUVboundary(ubnd, vbnd, :incoming)
+
+    function enforceregularity!(U::NTuple{3, Field{S}}, Ũ::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        r = Field(a.space, (u,v)->v-u) 
+        for index in CartesianIndices(r.value)
+            # Replace points at r == 0.
+            if r.value[index] == 0.0
+                U[1][index] = Ũ[1][index]
+                U[2][index] = Ũ[2][index]
+                U[3][index] = Ũ[3][index]
+            end
+        end
+        return U 
+    end
+
 
     function residual(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
         (a, η, ϕ) = U
+        # Residuals away from the axis
         F1 = DU*(DV*a) - (1/a)*(DU*a)*(DV*a) + (a/η)*(DU*(DV*η)) + (4pi*a)*(DU*ϕ)*(DV*ϕ)
         F2 = DU*(DV*η) + (1/η)*(DU*η)*(DV*η) + (1/4)*(1/η)*(a^2)
         F3 = DU*(DV*ϕ) + (1/η)*(DU*η)*(DV*ϕ) + (1/η)*(DV*η)*(DU*ϕ)
+        F = (F1, F2, F3)
 
-        # TODO: This is SLOW. Speed this up by enforcing the boundary conditions in place? 
-        F1 = (I - B) * F1 + B*(a - abnd)
-        F2 = (I - B) * F2 + B*(η - ηbnd)
-        F3 = (I - B) * F3 + B*(ϕ - ϕbnd)
-        return (F1, F2, F3)
+        # Residuals on axis [computed using parity rules and Stewart et al.]
+        F̃1 = (DU*η) * (DV*η) - (1/4) * a^2
+        F̃2 = DU*η + DV*η
+        F̃3 = DU*ϕ - DV*ϕ
+        F̃  = (F̃1, F̃2, F̃3)
+
+        return enforcebc!(enforceregularity!(F, F̃), B, U .- Ubnd) 
     end
 
     function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
@@ -102,8 +117,7 @@ function pconv(min, max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         n = n_[index]
-        # FIXME: Wait!? Why aren't we having issues with zeros?
-        params = adjust(Parameters((n, n), (1,1), urange, vrange, nfields), 1e-2)
+        params = Parameters((n, n), (1,1), urange, vrange, nfields)
         l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         @printf("  n = %i, rmse = %e\n", n_[index], l_[index])
     end
@@ -117,7 +131,7 @@ function hconv(min, max)
     for index in CartesianIndices(n_) 
         np = 2^n_[index]
         n_[index] = np
-        params = adjust(Parameters((6, 6), (np,np), urange, vrange, nfields), 1e-2)
+        params = Parameters((6, 6), (np,np), urange, vrange, nfields)
         l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
         @printf("  n = %3i, rmse[2h] / rmse[h] = %e\n", n_[index], l0 / l_[index])
@@ -128,12 +142,12 @@ end
 # Setup simulation grid parameters, 
 # call distribute and plot solutions
 #-----------------------------------------
-npoints  = (24, 24)
+npoints  = (14, 14)
 npatches = (1, 1) 
 urange   = (-1.0, 1.0)
 vrange   = (-1.0, 1.0) 
 nfields  = 3
-params   = adjust(Parameters(npoints, npatches, urange, vrange, nfields), 1e-2)
+params   = Parameters(npoints, npatches, urange, vrange, nfields)
 U = distribute(params, computePatch, computeUboundary, computeVboundary)
 @show rmse(extract(map(constraints, U), 1))
 contourf(extract(U, 3), 20, "../output/vaidya-psi.pdf")
@@ -142,6 +156,6 @@ contourf(extract(map(constraints, U), 1), 20, "../output/vaidya-constraints.pdf"
 #-----------------------------------------
 # Check and plot convergence
 #-----------------------------------------
-# pconv(14, 20)
-# hconv(0, 4)
+pconv(2, 22)
+# hconv(0, 6)
 

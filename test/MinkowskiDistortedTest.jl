@@ -72,26 +72,25 @@ function compute(PS::ProductSpace{S1, S2}, ubnd::NTuple{1,Field{S2}}, vbnd::NTup
         # Compute the expression using Mathematica.  FIXME: The residual is not
         # zero even for an exact solution. Fix the computation in
         # the Mathematica notebook.
-        F = ((2*(2*duP*(2*duduQ*duPsi - duduPsi*duQ)*Power(dvP,4) + Power(dvP,2)*
-            (-2*Power(duP,2)*duPsi*duQ*dvdvP - duPsi*Power(duQ,3)*dvdvP - 2*duP*duQ*(Power(duP,2) + Power(duQ,2))*dvdvPsi +
-              duP*duPsi*(4*Power(duP,2) + 3*Power(duQ,2))*dvdvQ + 8*dudvQ*Power(duP,3)*dvPsi - 6*dudvP*Power(duP,2)*duQ*dvPsi + 5*dudvQ*duP*Power(duQ,2)*dvPsi -
-              3*dudvP*Power(duQ,3)*dvPsi - 4*dudvPsi*Power(duP,3)*dvQ + 6*dudvP*Power(duP,2)*duPsi*dvQ - 8*dudvQ*duP*duPsi*duQ*dvQ + 2*dudvPsi*duP*Power(duQ,2)*dvQ +
-              5*dudvP*duPsi*Power(duQ,2)*dvQ + 2*duduP*Power(duP,2)*dvPsi*dvQ + 3*duduP*Power(duQ,2)*dvPsi*dvQ - 4*duduP*duPsi*duQ*Power(dvQ,2) +
-              4*duduQ*duP*dvQ*(-(duQ*dvPsi) + duPsi*dvQ)) + Power(dvP,3)*
-            (Power(duP,2)*(-8*dudvQ*duPsi + 4*dudvPsi*duQ - 4*duduQ*dvPsi + 2*duduPsi*dvQ) + 2*duP*(duQ*(dudvP*duPsi + duduP*dvPsi) - 2*duduP*duPsi*dvQ) +
-              duQ*(2*dudvPsi*Power(duQ,2) + 4*duduQ*duPsi*dvQ - duQ*(3*dudvQ*duPsi + duduQ*dvPsi + 2*duduPsi*dvQ))) -
-           dvP*(dvQ*(2*duP*duPsi*(Power(duP,2) + 2*Power(duQ,2))*dvdvP + 2*(-Power(duP,4) + Power(duQ,4))*dvdvPsi - 4*Power(duP,2)*duPsi*duQ*dvdvQ -
-                 2*duPsi*Power(duQ,3)*dvdvQ + 5*dudvQ*Power(duP,2)*duPsi*dvQ + 2*dudvPsi*Power(duP,2)*duQ*dvQ - 8*dudvP*duP*duPsi*duQ*dvQ + 6*dudvQ*duPsi*Power(duQ,2)*dvQ -
-                 4*dudvPsi*Power(duQ,3)*dvQ + 4*duduP*duP*duPsi*Power(dvQ,2) - 4*duduQ*duPsi*duQ*Power(dvQ,2) + 2*duduPsi*(-Power(duP,2) + Power(duQ,2))*Power(dvQ,2)) +
-              dvPsi*(-4*duP*duQ*(Power(duP,2) + Power(duQ,2))*dvdvP + 4*Power(duP,2)*(Power(duP,2) + Power(duQ,2))*dvdvQ +
-                 duduQ*(3*Power(duP,2) + 2*Power(duQ,2))*Power(dvQ,2) -
-                 2*dvQ*(-(dudvP*Power(duP,3)) + 4*dudvQ*Power(duP,2)*duQ + dudvQ*Power(duQ,3) + 2*duP*duQ*(-2*dudvP*duQ + duduP*dvQ)))) +
-           dvQ*(dvQ*(-3*Power(duP,2)*duPsi*duQ*dvdvP - 4*duPsi*Power(duQ,3)*dvdvP + 2*duP*duQ*(Power(duP,2) + Power(duQ,2))*dvdvPsi +
-                 duP*duPsi*(Power(duP,2) + 2*Power(duQ,2))*dvdvQ - 2*dudvPsi*Power(duP,3)*dvQ + 3*dudvP*Power(duP,2)*duPsi*dvQ - 2*dudvQ*duP*duPsi*duQ*dvQ -
-                 4*dudvPsi*duP*Power(duQ,2)*dvQ + 8*dudvP*duPsi*Power(duQ,2)*dvQ + 2*duduPsi*duP*duQ*Power(dvQ,2) - 4*duduP*duPsi*duQ*Power(dvQ,2)) +
-              dvPsi*(4*Power(duQ,2)*(Power(duP,2) + Power(duQ,2))*dvdvP - 4*duP*duQ*(Power(duP,2) + Power(duQ,2))*dvdvQ +
-                 dvQ*(3*dudvQ*Power(duP,3) + Power(duP,2)*(-5*dudvP*duQ + duduP*dvQ) + 4*Power(duQ,2)*(-2*dudvP*duQ + duduP*dvQ) + 2*duP*duQ*(3*dudvQ*duQ - duduQ*dvQ))))))/
-                Power(-(duQ*dvP) + duP*dvQ,5))
+
+        F = ((2*(dvP*(dudvPsi*Power(duQ,3)*Power(dvP,2) + dudvQ*duPsi*duQ*Power(dvP,2)*(-duQ + dvP) + dudvP*Power(duQ,4)*dvPsi - dudvP*Power(duQ,3)*dvP*dvPsi -
+          dudvP*duPsi*Power(duQ,3)*dvQ + 2*dudvP*duPsi*Power(duQ,2)*dvP*dvQ + duduQ*duPsi*duQ*Power(dvP,2)*dvQ - duduPsi*Power(duQ,2)*Power(dvP,2)*dvQ -
+          2*duduQ*duPsi*Power(dvP,3)*dvQ + duduPsi*duQ*Power(dvP,3)*dvQ - duduP*Power(duQ,3)*dvPsi*dvQ + 2*duduP*Power(duQ,2)*dvP*dvPsi*dvQ -
+          duduP*duQ*Power(dvP,2)*dvPsi*dvQ + duduP*duPsi*Power(duQ,2)*Power(dvQ,2) - 3*duduP*duPsi*duQ*dvP*Power(dvQ,2) + 2*duduP*duPsi*Power(dvP,2)*Power(dvQ,2)) -
+          Power(duP,3)*dvQ*(-(dvdvQ*dvP*dvPsi) + dvQ*(dvdvPsi*dvP - dudvQ*dvPsi + dvdvP*dvPsi + dudvPsi*dvQ) + duQ*(dvdvQ*dvPsi - dvdvPsi*dvQ)) +
+          Power(duP,2)*(Power(duQ,2)*dvQ*(-4*dudvQ*dvPsi + 3*dvdvP*dvPsi + 2*dudvPsi*dvQ) - Power(duQ,2)*dvdvQ*(3*dvP*dvPsi + duPsi*dvQ) +
+          duQ*dvdvQ*dvP*(dvP*dvPsi + 2*duPsi*dvQ) + Power(duQ,3)*(2*dvdvQ*dvPsi - dvdvPsi*dvQ) -
+          duQ*dvQ*(-(dvdvPsi*Power(dvP,2)) - 5*dudvQ*dvP*dvPsi + dvdvP*dvP*dvPsi - 2*dudvQ*duPsi*dvQ + 2*duPsi*dvdvP*dvQ + dudvPsi*dvP*dvQ - 2*duduQ*dvPsi*dvQ +
+             2*dudvP*dvPsi*dvQ + duduPsi*Power(dvQ,2)) + dvP*dvQ*(-3*dudvQ*dvP*dvPsi + dvQ*(2*dudvPsi*dvP - 2*duduQ*dvPsi + 2*dudvP*dvPsi + duduPsi*dvQ)) -
+          duPsi*dvQ*(dvdvQ*Power(dvP,2) + dvQ*(2*dudvQ*dvP - 2*dvdvP*dvP + duduQ*dvQ - dudvP*dvQ))) +
+            duP*(Power(duQ,4)*(dvdvPsi*dvP - 2*dvdvP*dvPsi) + Power(duQ,3)*
+           (-(duPsi*dvdvQ*dvP) - dvdvPsi*Power(dvP,2) + dvdvP*dvP*dvPsi + 2*duPsi*dvdvP*dvQ - 2*dudvPsi*dvP*dvQ + 3*dudvP*dvPsi*dvQ) -
+          dvP*dvQ*(-3*dudvQ*duPsi*Power(dvP,2) - duduQ*dvP*(2*dvP*dvPsi + 3*duPsi*dvQ) +
+             dvQ*(4*dudvP*duPsi*dvP + duduPsi*Power(dvP,2) + duduP*dvP*dvPsi + duduP*duPsi*dvQ)) +
+          Power(duQ,2)*(2*duPsi*dvdvQ*Power(dvP,2) + 2*dudvQ*Power(dvP,2)*dvPsi + duPsi*dvQ*(2*dudvQ*dvP - 2*dvdvP*dvP - 3*dudvP*dvQ) +
+             dvQ*(dudvPsi*Power(dvP,2) - 5*dudvP*dvP*dvPsi + duduPsi*dvP*dvQ - duduP*dvPsi*dvQ)) -
+          duQ*(duPsi*dvdvQ*Power(dvP,3) + dudvQ*Power(dvP,3)*dvPsi + duPsi*dvQ*(5*dudvQ*Power(dvP,2) + dvQ*(duduQ*dvP - 5*dudvP*dvP - duduP*dvQ)) +
+               2*dvP*dvQ*(dudvPsi*Power(dvP,2) + dvPsi*(duduQ*dvP - dudvP*dvP - duduP*dvQ))))))/Power(duQ*dvP - duP*dvQ,3))
 
         F = (I - B) * F + B * (Psi - first(Psibnd))
         return (F,)
