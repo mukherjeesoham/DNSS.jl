@@ -7,72 +7,18 @@
 
 using NLsolve, Printf
 
-#----------------------------------------------
-# Compute initial data
-#----------------------------------------------
-function phi(u::T , v::T)::T where {T<:Number}
-    # TODO: Use Minkowski solution
-    p = 0.0 #0.1 #0.001
-    return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
-end
-
-function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where {Tag}
-    PS = first(U).space
-    (a, η, ϕ) = U
-    D = derivative(PS)
-    I = identity(PS)
-    B = incomingboundary(PS) + outgoingboundary(PS)
-    A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
-    η = linsolve((I - B)*A + B, B*η)
-    @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < idtol
-    return η
-end
-
 function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
-    # TODO: Use Minkowski solution
-    a0 = extractUboundary(Field(PS, (u,v)->2), :incoming)
+    a0 = extractUboundary(Field(PS, (u,v)->2),   :incoming)
     η0 = extractUboundary(Field(PS, (u,v)->v-u), :incoming) 
-    ϕ0 = extractUboundary(Field(PS, phi), :incoming)
+    ϕ0 = extractUboundary(Field(PS, (u,v)-> 1e-8 * rand()),   :incoming)
     return (a0, η0, ϕ0)
-
-    a0 = extractUboundary(Field(PS, (u,v)->2), :incoming) 
-    η0 = extractUboundary(Field(PS, (u,v)->(v-u)), :incoming)
-    ϕ0 = extractUboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
-    return (a0, computeη((a0, η0, ϕ0)), ϕ0)
 end
 
 function computeVboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
-    # TODO: Use Minkowski solution
-    a0 = extractVboundary(Field(PS, (u,v)->2), :incoming)
+    a0 = extractVboundary(Field(PS, (u,v)->2),   :incoming)
     η0 = extractVboundary(Field(PS, (u,v)->v-u), :incoming) 
-    ϕ0 = extractVboundary(Field(PS, phi), :incoming)
+    ϕ0 = extractVboundary(Field(PS, (u,v)->0)  , :incoming)
     return (a0, η0, ϕ0)
-
-    a0 = extractVboundary(Field(PS, (u,v)->2), :incoming) 
-    η0 = extractVboundary(Field(PS, (u,v)->(v-u)), :incoming)
-    ϕ0 = extractVboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
-    return (a0, computeη((a0, η0, ϕ0)), ϕ0)
-end
-
-#----------------------------------------------
-# Compute the Ricci scalar and the Hawking mass 
-#----------------------------------------------
-function R(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return - (8 * (DU * ϕ) * (DV * ϕ)) / a^2  
-end
-
-function M(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return (η / 2) * (1 + (4 * (DU * η ) * (DV * η)) / η^2) 
-end
-
-function expansion(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return (DV * η) 
 end
 
 #----------------------------------------------
@@ -127,9 +73,9 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     end
 
     function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
-        a0 = Field(PS, (u,v)->2 + 1e-4 * rand()) 
+        a0 = Field(PS, (u,v)->2) 
         η0 = Field(PS, (u,v)->v-u) 
-        ϕ0 = Field(PS, phi)
+        ϕ0 = Field(PS, (u,v)->0)
         return (a0, η0, ϕ0)
     end
 
@@ -138,21 +84,18 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     end
 
     U0 = initialguess(PS)
-    @show norm(norm.(residual(U0)))
-    @show norm(norm.(constraints(U0)))
-    @show norm(norm.(onaxis(U0)))
-    @show norm(norm.(offaxis(U0)))
-    @show norm(norm.(boundary(U0)))
 
-    sol = nlsolve(f!, reshapeFromTuple(U0); method=solver, autodiff=:forward, show_trace=true, extended_trace=false, ftol=1e-9, iterations=40)
+    if debug >= 1
+        println("    Before solve            ")
+        println("    maximum(Constraints)  = ", norm(constraints(U0)))
+    end
+
+    sol = nlsolve(f!, reshapeFromTuple(U0); method=solver, autodiff=:forward, show_trace=true, extended_trace=false, ftol=1e-9, iterations=100)
     ToF = reshapeToTuple(PS, 3, sol.zero)
 
     if debug >= 1
         println("    Converged?            = ", converged(sol))
-        println("    maximum(Ricci Scalar) = ", maximum(R(ToF)))
-        println("    maximum(Hawking Mass) = ", maximum(M(ToF)))
         println("    maximum(Constraints)  = ", norm(constraints(ToF)))
-        println("    minimum(expansion)    = ", minimum(expansion(ToF)))
     end
 
     return ToF
@@ -210,7 +153,7 @@ end
 # call distribute and plot solutions
 #-----------------------------------------
 npoints  = (18, 18)
-npatches = (3, 3) 
+npatches = (1, 1) 
 urange   = (0.0, 2.0) #(1.0, 3.0)
 vrange   = (0.0, 2.0) #(5.0, 7.0)
 nfields  = 3
@@ -224,7 +167,7 @@ path     = "."
 λa       = 1.0
 λb       = 1.0 
 λc       = 1.0
-λ        = 0.0
+λ        = 1.0
 
 U = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
 @show rmse(extract(map(constraints, U), 1))

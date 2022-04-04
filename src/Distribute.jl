@@ -27,13 +27,14 @@ end
     Output: Array of ProductSpace or NTuple of solutions
 """
 function distribute(params::Parameters{T}, computePatch::Function, 
-        computeUboundary::Function, computeVboundary::Function, debug::Bool=true) where {T}
+        computeUboundary::Function, computeVboundary::Function, debug::Int=0) where {T}
     AoT = setup(params)
     for index in CartesianIndices(AoT)
-        if debug == true 
+        if (debug >= 2) 
             println("Computing patch ", index.I)
-            println("  (umin, vmin) = ", range(fetch(AoT[index]))[1])
-            println("  (umax, vmax) = ", range(fetch(AoT[index]))[2])
+            ((umin, vmin), (umax, vmax)) = range(AoT[index])
+            @printf("  umin = %.2f umax = %.2f\n", umin, umax)
+            @printf("  vmin = %.2f vmax = %.2f\n", vmin, vmax)
         end
         uboundary = index.I[1] == 1 ?  computeUboundary(AoT[index]) : extractUboundary(AoT[index - CartesianIndex((1,0))], :outgoing)
         vboundary = index.I[2] == 1 ?  computeVboundary(AoT[index]) : extractVboundary(AoT[index - CartesianIndex((0,1))], :outgoing)
@@ -54,7 +55,7 @@ function setup_(params::Parameters{T})::Array{Union{ProductSpace, Future, NTuple
 end
 
 function distribute_(params::Parameters{T}, computePatch::Function, 
-                     computeUboundary::Function, computeVboundary::Function, debug::Bool=true) where {T}
+                     computeUboundary::Function, computeVboundary::Function, debug::Int=0) where {T}
     function computeUboundary_(PS::Future)::Future where {S1, S2}
         @spawnat :any computeUboundary(fetch(PS))
     end
@@ -77,7 +78,7 @@ function distribute_(params::Parameters{T}, computePatch::Function,
     
     AoT = setup_(params)
     for index in CartesianIndices(AoT)
-        if debug == true 
+        if (debug >= 2) 
             println("Computing patch ", index.I)
             println("  (umin, vmin) = ", range(fetch(AoT[index]))[1])
             println("  (umax, vmax) = ", range(fetch(AoT[index]))[2])

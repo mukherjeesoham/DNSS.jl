@@ -4,14 +4,15 @@
 # Test scalar field on Minkowski spacetime
 #--------------------------------------------------------------------
 
-using Test, NLsolve, LinearAlgebra, Random
-using LaTeXStrings, Printf, PyPlot
+using Test, NLsolve, LinearAlgebra, Random, Printf
+# using LaTeXStrings, Printf, PyPlot
 
 #-----------------------------------------
 # Set up initial conditions on u0 and v0
 #-----------------------------------------
 function psibar(u::Real, v::Real)::Real
-    return exp(-u^2) * sin(pi*u) + exp(-v^2) * sin(pi*v)
+    σ = 0.5 
+    return exp(-u^2 / σ^2) * sin(pi*u) + exp(-v^2 / σ^2) * sin(pi*v)
 end
 
 function ubnd(PS::ProductSpace{S1, S2})::NTuple{1, Field{S2}} where {S1, S2}
@@ -86,7 +87,7 @@ function deltapsi(U::NTuple{1, Field})::NTuple{1, Field} where {S}
     # Compute the error at twice the number of points
     psi = project(first(U), prolongate(first(U).space))
     psiexact = Field(psi.space, psibar)
-    return (psi - psiexact, ) 
+    return (psi - psiexact, )
 end
 
 #-----------------------------------------
@@ -94,14 +95,14 @@ end
 #-----------------------------------------
 function pconv(min, max)
     println("Testing p convergence")
-    n_ = collect(min:max)
+    n_ = collect(min:2:max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         n = n_[index]
         l_[index]  =  rmse(extract(map(deltapsi, distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd)), 1))
         @printf("  n = %i,  rmse = %e\n", n_[index], l_[index])
     end
-    plotpconv(n_, l_, "../output/minkowski-psi-pconv.pdf")
+    plotpconv(n_, l_, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-p-conv.pdf")
 end
 
 function hconv(min, max)
@@ -115,14 +116,14 @@ function hconv(min, max)
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
         @printf("  n = %3i, rmse = %e\n", n_[index], l0 / l_[index])
     end
-    plothconv(n_, l_, "../output/minkowski-psi-hconv.pdf")
+    plothconv(n_, l_,  "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-h-conv.pdf")
 end
 
 #-----------------------------------------
 # Setup simulation grid parameters 
 #-----------------------------------------
-npoints = (12, 12)
-npatches = (4, 4) 
+npoints = (18, 18)
+npatches = (8, 8) 
 urange = (-1.0, 1.0)
 vrange = (-1.0, 1.0) 
 nfields = 1
@@ -140,11 +141,11 @@ compute = nonlin
 #-----------------------------------------
 # Plot the scalar field and the error
 #-----------------------------------------
-contourf(extract(ϕ_, 1), 20, "../output/minkowski-psi.pdf")
-contourf(extract(map(deltapsi, ϕ_), 1), 20, "../output/minkowski-psi-error.pdf")
+contourf(extract(ϕ_, 1), 20, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi.pdf")
+contourf(extract(map(log ∘ deltapsi, ϕ_), 1), 20, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-error.pdf")
 
 #-----------------------------------------
 # Now test h-p convergence
 #-----------------------------------------
-pconv(4, 30)
-hconv(0, 7)
+pconv(18, 36)
+hconv(0, 8)

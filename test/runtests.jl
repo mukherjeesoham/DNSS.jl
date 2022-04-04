@@ -1,6 +1,6 @@
 using DNSS, Test
 
-libraries = ["Collapse"]
+libraries = ["MinkowskiSphericalSymmetry"]
 
 for file in libraries
     @info "Testing $file"

@@ -72,7 +72,6 @@ function compute(PS::ProductSpace{S1, S2}, ubnd::NTuple{1,Field{S2}}, vbnd::NTup
         # Compute the expression using Mathematica.  FIXME: The residual is not
         # zero even for an exact solution. Fix the computation in
         # the Mathematica notebook.
-
         F = ((2*(dvP*(dudvPsi*Power(duQ,3)*Power(dvP,2) + dudvQ*duPsi*duQ*Power(dvP,2)*(-duQ + dvP) + dudvP*Power(duQ,4)*dvPsi - dudvP*Power(duQ,3)*dvP*dvPsi -
           dudvP*duPsi*Power(duQ,3)*dvQ + 2*dudvP*duPsi*Power(duQ,2)*dvP*dvQ + duduQ*duPsi*duQ*Power(dvP,2)*dvQ - duduPsi*Power(duQ,2)*Power(dvP,2)*dvQ -
           2*duduQ*duPsi*Power(dvP,3)*dvQ + duduPsi*duQ*Power(dvP,3)*dvQ - duduP*Power(duQ,3)*dvPsi*dvQ + 2*duduP*Power(duQ,2)*dvP*dvPsi*dvQ -
@@ -173,7 +172,7 @@ Grid = Parameters(npoints, npatches, urange, vrange, nfields)
 # Plot the scalar field and the error
 #-----------------------------------------
 contourf(extract(ϕ_, 1), 20, "../output/minkowski-distorted-psi.pdf")
-# contourf(extract(map(deltapsi, ϕ_), 1), 20, "../output/minkowski-distorted-psi-error.pdf")
+# # contourf(extract(map(deltapsi, ϕ_), 1), 20, "../output/minkowski-distorted-psi-error.pdf")
 
 #-----------------------------------------
 # Now test h-p convergence

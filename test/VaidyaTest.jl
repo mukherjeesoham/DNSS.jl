@@ -3,7 +3,6 @@
 # Soham 03-2022
 # Simulate the collapse of a self-gravitating scalar field
 #--------------------------------------------------------------------
-# TODO: Investigating stability
 
 using NLsolve, Printf
 
@@ -11,30 +10,27 @@ using NLsolve, Printf
 # Compute initial data
 #----------------------------------------------
 function phi(u::T , v::T)::T where {T<:Number}
-    # TODO: Use Minkowski solution
-    p = 0.0 #0.1 #0.001
+    p = 0.001
     return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
 end
 
 function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where {Tag}
-    PS = first(U).space
+    PS = (prolongate ∘ prolongate)(first(U).space)
     (a, η, ϕ) = U
+    (a, η, ϕ) = (project(a, PS), project(η, PS), project(ϕ, PS)) 
+
     D = derivative(PS)
     I = identity(PS)
     B = incomingboundary(PS) + outgoingboundary(PS)
     A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
     η = linsolve((I - B)*A + B, B*η)
     @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < idtol
-    return η
+    PR = (restrict ∘ restrict)(PS)
+
+    return project(η, PR)
 end
 
 function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
-    # TODO: Use Minkowski solution
-    a0 = extractUboundary(Field(PS, (u,v)->2), :incoming)
-    η0 = extractUboundary(Field(PS, (u,v)->v-u), :incoming) 
-    ϕ0 = extractUboundary(Field(PS, phi), :incoming)
-    return (a0, η0, ϕ0)
-
     a0 = extractUboundary(Field(PS, (u,v)->2), :incoming) 
     η0 = extractUboundary(Field(PS, (u,v)->(v-u)), :incoming)
     ϕ0 = extractUboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
@@ -42,12 +38,6 @@ function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where 
 end
 
 function computeVboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
-    # TODO: Use Minkowski solution
-    a0 = extractVboundary(Field(PS, (u,v)->2), :incoming)
-    η0 = extractVboundary(Field(PS, (u,v)->v-u), :incoming) 
-    ϕ0 = extractVboundary(Field(PS, phi), :incoming)
-    return (a0, η0, ϕ0)
-
     a0 = extractVboundary(Field(PS, (u,v)->2), :incoming) 
     η0 = extractVboundary(Field(PS, (u,v)->(v-u)), :incoming)
     ϕ0 = extractVboundary(Field(PS, (u,v)->phi(u,v)), :incoming)
@@ -127,7 +117,7 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     end
 
     function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
-        a0 = Field(PS, (u,v)->2 + 1e-4 * rand()) 
+        a0 = Field(PS, (u,v)->2) 
         η0 = Field(PS, (u,v)->v-u) 
         ϕ0 = Field(PS, phi)
         return (a0, η0, ϕ0)
@@ -138,13 +128,7 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
     end
 
     U0 = initialguess(PS)
-    @show norm(norm.(residual(U0)))
-    @show norm(norm.(constraints(U0)))
-    @show norm(norm.(onaxis(U0)))
-    @show norm(norm.(offaxis(U0)))
-    @show norm(norm.(boundary(U0)))
-
-    sol = nlsolve(f!, reshapeFromTuple(U0); method=solver, autodiff=:forward, show_trace=true, extended_trace=false, ftol=1e-9, iterations=40)
+    sol = nlsolve(f!, reshapeFromTuple(U0); method=solver, autodiff=:forward, show_trace=debug>=4, extended_trace=false, ftol=1e-9, iterations=iter)
     ToF = reshapeToTuple(PS, 3, sol.zero)
 
     if debug >= 1
@@ -196,7 +180,7 @@ function hconv(min, max)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         nh = n_[index] = 2^n_[index]
-        np = 4
+        np = 12
         params = Parameters((np, np), (nh, nh), urange, vrange, nfields)
         l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
@@ -211,13 +195,13 @@ end
 #-----------------------------------------
 npoints  = (18, 18)
 npatches = (3, 3) 
-urange   = (0.0, 2.0) #(1.0, 3.0)
-vrange   = (0.0, 2.0) #(5.0, 7.0)
+urange   = (1.0, 3.0)
+vrange   = (5.0, 7.0)
 nfields  = 3
 nprocs   = 3
 solver   = :trust_region # :trust_region :Newton :Anderson
-debug    = 2
-idtol    = 1e-5
+debug    = 0
+idtol    = 1e-3
 exclude  = true
 params   = Parameters(npoints, npatches, urange, vrange, nfields)
 path     = "."
@@ -225,9 +209,10 @@ path     = "."
 λb       = 1.0 
 λc       = 1.0
 λ        = 0.0
+iter     = 40
 
-U = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
-@show rmse(extract(map(constraints, U), 1))
+# U = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
+# @show rmse(extract(map(constraints, U), 1))
 # contourf(extract(U, 3), 20, "$path/collase-psi.pdf")
 # contourf(extract(map(logconstraints, U), 1), 20, "$path/collapse-constraints.pdf")
 
@@ -235,5 +220,5 @@ U = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
 # Check and plot convergence
 #-----------------------------------------
 # pconv(2, 22)
-# hconv(0, 6)
+hconv(3, 5)
 

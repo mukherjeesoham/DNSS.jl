@@ -48,23 +48,3 @@ function enforcebc!(u::NTuple{N, Field{S}}, A::Operator{S},v:: NTuple{N, Field{S
     return u
 end
 
-"""
-    Given a set of grid parameters, find a shift that makes sure
-    none of the grid points are close to zero. 
-"""
-function adjust(params::Parameters, tol::Number; maxiter=100)::Parameters
-    ϵ = 0.0
-    for iteration in 1:maxiter
-        AoS = setup(params)
-        AoF = Field(AoS, (u,v)->abs(v-u))
-        if minimum(AoF) > tol
-            println("Shifting V by ", minimum(AoF))
-            return params
-        else
-            ϵ = ϵ + tol
-            params.vbounds = params.vbounds .+ ϵ
-        end
-    end
-    println("Could not find ϵ that works.")
-    return params
-end

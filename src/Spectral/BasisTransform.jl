@@ -38,7 +38,7 @@ function linetransform(PS::ChebyshevGL{Tag, N, T}, nodal::Array{T, 1}, modal::Ar
     return (2/order(PS))*modal
 end
 
-function embed!(u::Vector{T}, v::Vector{T})::Matrix{T} where {T}
+function embed!(u::Vector{T}, v::Vector{T})::Vector{T} where {T}
     a = length(u)
     b = length(v)
     for i in 1:min(a,b)
@@ -68,13 +68,20 @@ function basistransform(u::Field{Chebyshev{Tag, N, T}})::Field{ChebyshevGL{Tag, 
     return Field(ChebyshevGL{Tag, N, T}(range(u.space)...), linetransform(u.space, modal, nodal))
 end
 
-function project(u::Field{Chebyshev{Tag, N1, T}}, PS::Chebyshev{Tag, N2, T})::Field{Chebyshev{Tag, N2, T}} where {Tag, N1, N2, T}
+function project(u::Field{Chebyshev{Tag, N1, T}}, S::Chebyshev{Tag, N2, T})::Field{Chebyshev{Tag, N2, T}} where {Tag, N1, N2, T}
     v = zeros(T, N2)
     return Field(Chebyshev{Tag, N2, T}(range(u.space)...), embed!(u.value, v))
 end
 
-function project(u::Field{ChebyshevGL{Tag, N1, T}}, PS::ChebyshevGL{Tag, N2, T})::Field{Chebyshev{Tag, N2, T}} where {Tag, N1, N2, T}
-    return basistransform(project(basistransform(u), PS))
+function project(u::Field{ChebyshevGL{Tag, N1, T}}, S::ChebyshevGL{Tag, N2, T})::Field{ChebyshevGL{Tag, N2, T}} where {Tag, N1, N2, T}
+    return basistransform(project(basistransform(u), basistransform(S)))
+end
+
+
+function Base. filter!(u::Field{ChebyshevGL{Tag, N, T}})::Field{ChebyshevGL{Tag, N, T}} where {Tag, N, T}
+    SR = Chebyshev{Tag, Int(ceil(N * 2/3)), T}(range(u.space)...)
+    S  = Chebyshev{Tag, N, T}(range(u.space)...)
+    return basistransform(project(project(basistransform(u), SR), S))
 end
 
 function basistransform(u::Field{S}) where {S<:ProductSpace{ChebyshevGL{Tag1, N1, T}, 
@@ -142,6 +149,23 @@ function basistransform(PS::ProductSpace{Chebyshev{Tag1, N1, T}, Chebyshev{Tag2,
     A = ChebyshevGL{Tag1, N1, T}(range(PS.S1)...) 
     B = ChebyshevGL{Tag2, N2, T}(range(PS.S2)...) 
     return ProductSpace(A,B)
+end
+
+function basistransform(S::ChebyshevGL{Tag, N, T}) where {Tag, N, T} 
+    return  Chebyshev{Tag, N, T}(range(S)...) 
+end
+
+function basistransform(S::Chebyshev{Tag, N, T}) where {Tag, N, T} 
+    return  ChebyshevGL{Tag, N, T}(range(S)...) 
+end
+
+function prolongate(S::ChebyshevGL{Tag, N, T}) where {Tag, N, T} 
+    return ChebyshevGL{Tag, 2*N, T}(range(S)...)
+end
+
+function restrict(S::ChebyshevGL{Tag, N, T}) where {Tag, N, T} 
+    N2 = iseven(N) ? div(N, 2) : div(N + 1, 2) 
+    return ChebyshevGL{Tag, N2, T}(range(S)...) 
 end
 
 function prolongate(PS::ProductSpace{ChebyshevGL{Tag1, N1, T}, ChebyshevGL{Tag2, N2, T}}) where {Tag1, Tag2, N1, N2, T} 
