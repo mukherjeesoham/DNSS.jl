@@ -22,9 +22,11 @@ function combineUVboundary(uboundary::Field{S2}, vboundary::Field{S1}, boundaryt
     if boundarytype == :incoming
         uv.value[end, :] = uboundary.value
         uv.value[:, end] = vboundary.value
+        uv.value[end, end] = (uboundary.value[end] + vboundary.value[end]) / 2
     else 
         uv.value[1, :]   = uboundary.value
         uv.value[:, 1]   = vboundary.value
+        uv.value[1, 1]   = (uboundary.value[1] + vboundary.value[1]) / 2
     end
     return uv 
 end

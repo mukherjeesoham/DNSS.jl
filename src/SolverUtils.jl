@@ -20,31 +20,21 @@ function reshapeToTuple(space::S, N::Int, x::Array{T,1})::NTuple{N, Field}  wher
     return Tuple(reshape(space, U[:, i]) for i in 1:N)
 end
 
-"""
-    Takes a field, and replaces it's boundary values with the 
-    residual.
-"""
-function enforcebc!(u::Field{S}, A::Operator{S}, bndres::Field{S})::Field{S} where {S}
-    for index in CartesianIndices(u.value)
-        if A.value[index.I..., index.I...] == 1
-            u.value[index] = bndres.value[index]
-        end
+function enforcebc!(F::NTuple{N, Field{S}}, B::NTuple{N, Field{S}}) where {S,N}
+    r = Field(first(F).space, (u,v)->v-u) 
+    for index_ in 1:N
+        F[index_].value[end, :] = B[index_].value[end, :]
+        F[index_].value[:, end] = B[index_].value[:, end]
     end
-    return u
 end
 
-"""
-    Takes a tuple of fields, and replaces it's boundary values with the 
-    residual.
-"""
-function enforcebc!(u::NTuple{N, Field{S}}, A::Operator{S},v:: NTuple{N, Field{S}})::NTuple{3, Field{S}} where {S, N}
-    for index in CartesianIndices(u[1].value)
-        if A.value[index.I..., index.I...] == 1
-            for i in 1:N
-                u[i].value[index] = v[i].value[index]
+function enforceregularity!(F::NTuple{N, Field{S}}, A::NTuple{N, Field{S}}) where {S,N}
+    r = Field(first(F).space, (u,v)->v-u) 
+    for index in CartesianIndices(r.value)
+        if r.value[index] == 0.0
+            for index_ in 1:N
+                F[index_].value[index] = A[index_].value[index]
             end
         end
     end
-    return u
 end
-

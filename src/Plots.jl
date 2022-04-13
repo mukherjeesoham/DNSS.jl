@@ -6,7 +6,7 @@
 # waste time with this. 
 #--------------------------------------------------------------------
 
-using PyPlot, LaTeXStrings
+using PyPlot, LaTeXStrings, LinearAlgebra
 
 
 """
@@ -30,8 +30,8 @@ function PyPlot. plot(u::Field{S}, path) where {S}
     x = Field(u.space, x->x)
     plot(x.value, u.value, "-") 
 
-    xlabel(L"$v$")
-    ylabel(L"$a(u_0, v)$")
+    # xlabel(L"$v$")
+    # ylabel(L"$a(u_0, v)$")
     tight_layout()
     savefig("$path")
     close()
@@ -140,3 +140,33 @@ function plothconv(n_::Vector, l_::Vector, path::String)
     close()
 end
 
+function plotmodes(u::Field{ProductSpace{ChebyshevGL{Tag1, N1, T},
+                                         ChebyshevGL{Tag2, N2, T}}}, path::String) where {Tag1, Tag2, N1, N2, T}
+    rcParams = PyPlot.PyDict(PyPlot.matplotlib."rcParams")
+    rcParams["font.size"] = 8
+    rcParams["text.usetex"] = true
+    rcParams["axes.titlesize"] = 8.0
+    rcParams["axes.labelsize"] = 10.0
+    rcParams["xtick.labelsize"] = 8.0
+    rcParams["ytick.labelsize"] = 8.0
+    rcParams["legend.fontsize"] =  8.0
+    rcParams["figure.figsize"] = (10, 10)
+    rcParams["figure.dpi"] = 300
+    rcParams["savefig.dpi"] = 300
+    w, h = plt[:figaspect](10)
+    figure(figsize=(w,h))
+
+    # Compute the maximum along the secondary diagonals
+    ull = basistransform(u) 
+    B   = rotr90(ull.value,3)
+    (lu, lv) = size(B)
+    @assert lu == lv
+    ul = [maximum(abs.(B[diagind(B, ind)])) for ind in -lu+1:lv-1] 
+
+    semilogy(ul, "o--", linewidth=0.5, markersize=1.0)
+    xlabel(L"$l_u + l_v$")
+    ylabel(L"$\mathrm{max}(|c_{uv}|)$")
+    tight_layout()
+    savefig("$path")
+    close()
+end

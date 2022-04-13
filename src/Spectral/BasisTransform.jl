@@ -181,3 +181,28 @@ function restrict(PS::ProductSpace{ChebyshevGL{Tag1, N1, T}, ChebyshevGL{Tag2, N
     B = ChebyshevGL{Tag2, N4, T}(range(PS.S2)...) 
     return ProductSpace(A,B)
 end
+
+function restrict(u::Field{S}) where {S}
+    return project(u, restrict(u.space))
+end
+
+function prolongate(u::Field{S}) where {S}
+    return project(u, prolongate(u.space))
+end
+
+function restrict(U::NTuple{N,Field{S}}) where {N,S}
+    return map(restrict, U)
+end
+
+function prolongate(U::NTuple{N,Field{S}}) where {N,S}
+    return map(prolongate, U)
+end
+
+function filtertophalf(u::Field{S}) where {S}
+    return (prolongate ∘ restrict)(u)
+end
+
+function filtertophalf(U::NTuple{N,Field{S}}) where {N,S}
+    return map(filtertophalf, U)
+end
+

@@ -1,151 +1,191 @@
 #--------------------------------------------------------------------
 # DNSS.jl
-# Soham 08-2019
-# Test scalar field on Minkowski spacetime
+# Soham 03-2022
+# Simulate the Minkowski spacetime
 #--------------------------------------------------------------------
 
-using Test, NLsolve, LinearAlgebra, Random, Printf
-# using LaTeXStrings, Printf, PyPlot
+using NLsolve, Printf
 
-#-----------------------------------------
-# Set up initial conditions on u0 and v0
-#-----------------------------------------
-function psibar(u::Real, v::Real)::Real
-    σ = 0.5 
-    return exp(-u^2 / σ^2) * sin(pi*u) + exp(-v^2 / σ^2) * sin(pi*v)
+# TODO: Add some noise to the initial and boundary conditions
+# TODO: Instead of addding it to guv, what happens when we add a little
+# noise to ψ?
+noise = 1e-4 * rand()
+
+function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
+    a0 = extractUboundary(Field(PS, (u,v)->2), :incoming) 
+    η0 = extractUboundary(Field(PS, (u,v)->(v-u)), :incoming)
+    ϕ0 = extractUboundary(Field(PS, (u,v)->noise), :incoming)
+    return (a0, η0, ϕ0)
 end
 
-function ubnd(PS::ProductSpace{S1, S2})::NTuple{1, Field{S2}} where {S1, S2}
-    return (extractUboundary(Field(PS, psibar), :incoming), )
+function computeVboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where {S1, S2}
+    a0 = extractVboundary(Field(PS, (u,v)->2 + noise), :incoming) 
+    η0 = extractVboundary(Field(PS, (u,v)->(v-u)), :incoming)
+    ϕ0 = extractVboundary(Field(PS, (u,v)->noise), :incoming)
+    return (a0, η0, ϕ0)
 end
 
-function vbnd(PS::ProductSpace{S1, S2})::NTuple{1, Field{S1}} where {S1, S2}
-    return (extractVboundary(Field(PS, psibar), :incoming), )
+function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
+    a0 = Field(PS, (u,v)->2) 
+    η0 = Field(PS, (u,v)->v-u) 
+    ϕ0 = Field(PS, (u,v)->noise)
+    return (a0, η0, ϕ0)
 end
 
-#------------------------------------------------------------
-# Set up computation on each patch using a non-linear solver
-#------------------------------------------------------------
-function nonlin(PS::ProductSpace{S1, S2}, ubnd::NTuple{1,Field{S2}}, vbnd::NTuple{1,Field{S1}})::NTuple{1, Field{ProductSpace{S1, S2}}} where {S1, S2}
-
-    # Define all the operators we use local to the patch. 
+function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd::NTuple{3, Field{S1}})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
     B = incomingboundary(PS)
     I = identity(PS)
     DU, DV = derivative(PS)
-    psibnd = combineUVboundary(ubnd, vbnd, :incoming)
+    ∂U = combineUVboundary(ubnd, vbnd, :incoming)
+    btol = norm(map(norm ∘ lineconstraints, (ubnd, vbnd)))
 
-    # Compute the residual. This is slow but works. Sets the residual in the
-    # interior as well as the boundary.
-    function residual(psi::NTuple{1, Field{S}})::NTuple{1, Field{S}} where {S}
-        psi = first(psi)
-        F = (I - B) * (DU*(DV*psi)) + B * (psi - first(psibnd))
-        return (F,)
+    function constr(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        (a, η, ϕ) = U
+        C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
+        C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
+        C  = sqrt(C1*C1 + C2*C2)
+        return (C, C, C)
     end
 
-    # Residual to pass to the non-linear solver in NLsolve
+    function offaxis(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        (a, η, ϕ) = U
+        F1 = DU*(DV*a) - (1/a)*(DU*a)*(DV*a) + (a/η)*(DU*(DV*η)) + (4pi*a)*(DU*ϕ)*(DV*ϕ)
+        F2 = DU*(DV*η) + (1/η)*(DU*η)*(DV*η) + (1/4)*(1/η)*(a^2)
+        F3 = DU*(DV*ϕ) + (1/η)*(DU*η)*(DV*ϕ) + (1/η)*(DV*η)*(DU*ϕ)
+        return (F1, F2, F3) 
+    end
+
+    function onaxis(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        (a, η, ϕ) = U
+        A1 = (DU*η) * (DV*η) + (1/4) * a^2
+        A2 = DU*η + DV*η
+        A3 = DU*ϕ - DV*ϕ
+        return (A1, A2, A3)
+    end
+
+    function boundary(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        return U - ∂U 
+    end
+
+    function residual(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        F = offaxis(U) + λ * constr(U)
+        enforceregularity!(F, onaxis(U))
+        enforcebc!(F, boundary(U)) 
+        return F
+    end
+
     function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
-        fvec[:]  = reshapeFromTuple(residual(reshapeToTuple(PS, 1, x)))
+        fvec[:] = reshapeFromTuple(residual(reshapeToTuple(PS, 3, x)))
     end
 
-    # Specify an initial guess
-    function initialguess(PS::ProductSpace{S1, S2})::NTuple{1, Field{ProductSpace{S1, S2}}} where {S1, S2}
-        return (Field(PS, (u,v)->1), ) 
+    s = nlsolve(f!, reshapeFromTuple(initialguess(PS)); method=solver, autodiff=:forward, show_trace=debug >= 3, ftol=max(stol, btol), iterations=40)
+    k = reshapeToTuple(PS, 3, s.zero)
+
+    if debug >= 1
+        println("    Converged?            = ", converged(s))
+        println("    maximum(Ricci Scalar) = ", maximum(R(k)))
+        println("    maximum(Hawking Mass) = ", maximum(M(k)))
+        println("    norm(constraints)     = ", norm(constraints(k)))
+        println("    minimum(expansion)    = ", minimum(expansion(k)))
     end
 
-    # Compute the initial guess to pass to the solver
-    U0 = reshapeFromTuple(initialguess(PS))
-
-    # Call the non-linear solver
-    U = nlsolve(f!, U0; method=:trust_region, autodiff=:forward, show_trace=false, ftol=1e-8, iterations=100)
-    return reshapeToTuple(PS, 1, U.zero)
+    return k
 end
 
-#------------------------------------------------------------
-# Set up computation on each patch using a linear solver
-#------------------------------------------------------------
-function lin(PS::ProductSpace{S1, S2}, ubnd::NTuple{1,Field{S2}}, vbnd::NTuple{1,Field{S1}})::NTuple{1, Field{ProductSpace{S1, S2}}} where {S1, S2}
-
-    # Define all the operators we use local to the patch. 
-    B = incomingboundary(PS)
-    DU, DV = derivative(PS)
-    bnd = combineUVboundary(ubnd, vbnd, :incoming)
-    L   = 2*DU*DV 
-    
-    # Using the linearity of the system to solve the system
-    # L u  = 0 # Evolution equations
-    # B u =  b # Boundary conditions
-    # (L + B) u = b
-    U = linsolve(L + B,  first(bnd)) 
-    return (U, )
-end
-
-#-----------------------------------------
-# Compare with analytic solution
-#-----------------------------------------
-
-function deltapsi(U::NTuple{1, Field})::NTuple{1, Field} where {S}
-    # Compute the error at twice the number of points
-    psi = project(first(U), prolongate(first(U).space))
-    psiexact = Field(psi.space, psibar)
-    return (psi - psiexact, )
-end
-
-#-----------------------------------------
-# h and p convergence functions 
-#-----------------------------------------
-function pconv(min, max)
+function pconv(range::StepRange, nh::Int=1)
     println("Testing p convergence")
-    n_ = collect(min:2:max)
+    n_ = collect(r)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
-        n = n_[index]
-        l_[index]  =  rmse(extract(map(deltapsi, distribute(Parameters((n, n), (1,1), urange, vrange, nfields), compute, ubnd, vbnd)), 1))
-        @printf("  n = %i,  rmse = %e\n", n_[index], l_[index])
+        np = n_[index]
+        params = Parameters((np, np), (nh,nh), urange, vrange, 3)
+        q = distribute(params, computePatch, computeUboundary, computeVboundary)
+        l_[index] = rmse(extract(map(constraints, q), 1))
+        @printf("  n = %i, rmse = %e\n", n_[index], l_[index])
     end
-    plotpconv(n_, l_, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-p-conv.pdf")
+    return (n_, l_)
 end
 
-function hconv(min, max)
+function hconv(range::StepRange, np::Int=4)
     println("Testing h convergence")
-    n_ = collect(min:max)
+    n_ = collect(range)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
-        np = 2^n_[index]
-        n_[index] =  np
-        l_[index] =  rmse(extract(map(deltapsi, distribute(Parameters((4, 4), (np, np), urange, vrange, nfields), compute, ubnd, vbnd)), 1))
+        nh = n_[index] = 2^n_[index]
+        params = Parameters((np, np), (nh, nh), urange, vrange, 3)
+        l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
-        @printf("  n = %3i, rmse = %e\n", n_[index], l0 / l_[index])
+        @printf("  n = %3i, rmse[2h] / rmse[h] = %e\n", n_[index], l0 / l_[index])
     end
-    plothconv(n_, l_,  "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-h-conv.pdf")
+    return (n_, l_)
+end
+
+# Implement some local filtering
+function aggresivefilter(u::Field{S}) where {S}
+    # XXX: Setting an threshold of 1e-5
+    threshold = 1e-3
+    ulm = basistransform(u)
+    for index in CartesianIndices(u.value)
+        if ulm.value[index] <= threshold
+            ulm.value[index] = 1e-15
+        end
+    end
+    return basistransform(ulm)
+end
+
+function aggresivefilter(U::NTuple{N,Field{S}}) where {N,S}
+    return map(aggresivefilter, U)
 end
 
 #-----------------------------------------
-# Setup simulation grid parameters 
+# Setup simulation grid parameters, 
 #-----------------------------------------
-npoints = (18, 18)
-npatches = (8, 8) 
-urange = (-1.0, 1.0)
-vrange = (-1.0, 1.0) 
-nfields = 1
-Grid = Parameters(npoints, npatches, urange, vrange, nfields)
+# FIXME: Does this work for n = 2?
+npoints  = (18, 18)
+npatches = (1, 1) 
+urange   = (0.0, 1.0)  
+vrange   = (0.0, 1.0)  
+params   = Parameters(npoints, npatches, urange, vrange, 3)
+solver   = :trust_region 
+λ        = 0.0 
+itol     = 1e-9
+stol     = 1e-9
+debug    = 4
+path     = "."
 
-# Choose whether to use linear or non-linear solver.
-compute = nonlin
+# Check solution solution
+S = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
+# S = map(filtertophalf, S)
+# S = map(aggresivefilter, S)
+@show rmse(extract(map(constraints, S), 1))
+# contourf(extract(S, 1), 20, "$path/collase-a.pdf")
+# contourf(extract(S, 2), 20, "$path/collase-eta.pdf")
+# contourf(extract(S, 3), 20, "$path/collase-psi.pdf")
+# contourf(extract(map(constraints, S), 1), 20, "$path/collapse-constraints.pdf")
+# contourf(extract(map(residuals, S), 1), 20, "$path/collapse-residuals.pdf")
 
-#-----------------------------------------
-# Compute the scalar field over the grid
-#-----------------------------------------
-ϕ_ = distribute(Grid, compute, ubnd, vbnd)
-@test rmse(extract(map(deltapsi, ϕ_), 1)) < 1e-9
+# Check convergence
+# (np, lp) = pconv(4:2:16, 1)
+# (nh, lh) = hconv(0:1:4, 2)
+# plotpconv(np, lp, "$path/collapse-constraints-pconv.pdf")
+# plotpconv(nh, lh, "$path/collapse-constraints-hconv.pdf")
 
-#-----------------------------------------
-# Plot the scalar field and the error
-#-----------------------------------------
-contourf(extract(ϕ_, 1), 20, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi.pdf")
-contourf(extract(map(log ∘ deltapsi, ϕ_), 1), 20, "/Users/soham/Projects/phdthesis/papers/spacetime_methods/figures/minkowski-psi-error.pdf")
+# al = extract(S, 1)[1,1]
+# ηl = extract(S, 2)[1,1]
+# ψl = extract(S, 3)[1,1]
+# plotmodes(al, "$path/guv_l.pdf")
+# plotmodes(ηl, "$path/grr_l.pdf")
+# plotmodes(ψl, "$path/psi_l.pdf")
 
-#-----------------------------------------
-# Now test h-p convergence
-#-----------------------------------------
-pconv(18, 36)
-hconv(0, 8)
+# Notes
+# [Adding noise]
+# 1/ Adding noise to guv results in the non-linear solver failing to converge.
+# 2/ Adding noise to psi allows the non-linear solver to converge. 
+# 3/ However the higher modes saturate around 1e-5, which explains why the constraint
+#    violations are so large (i.e., once you take the second derivatives of the basis functions
+#    their values at the boundary are orders of magnitude higher than in the interior.)
+#    Filtering, at least in the Minkowski case is tricky, since most modes saturate around 1e-4. Filtering 
+#    the top-half is already quite aggresive but that doesn't work either. If we set all the modes below
+#    say 1e-3 to zero, we get the constraints to the satisfied well. 
+#    TODO: Also understand the cancellations that happen for Minkowski for the case of 4 points but not
+#    for the more general Vaidya spacetime. 

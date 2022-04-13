@@ -65,3 +65,14 @@ function rmse(AoF::Matrix{Field})::Real
     return norm(norm.(AoF))
 end
 
+function Base. *(λ::Number, U::NTuple{N, Field})::NTuple{N, Field} where {N}
+    return map(u->λ*u, U)
+end
+
+function Base. +(U::NTuple{N, Field{S}}, V::NTuple{N, Field{S}})::NTuple{N, Field{S}} where {N, S}
+    return U .+ V
+end
+
+function Base. -(U::NTuple{N, Field{S}}, V::NTuple{N, Field{S}})::NTuple{N, Field{S}} where {N, S}
+    return U .- V
+end

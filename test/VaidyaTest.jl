@@ -2,34 +2,26 @@
 # DNSS.jl
 # Soham 03-2022
 # Simulate the collapse of a self-gravitating scalar field
+# in Vaidya spacetime
 #--------------------------------------------------------------------
 
 using NLsolve, Printf
 
-#----------------------------------------------
-# Compute initial data
-#----------------------------------------------
+function phi(x::T)::T where {T<:Number}
+    (ul, ur) = (-0.5, 0.5)
+    if abs(x) <= 0.5 
+        return x * (1-(x/ur))^4  * (1 - (x/ul))^4 
+    else
+        return 0.0
+    end
+end
+
 function phi(u::T , v::T)::T where {T<:Number}
-    p = 0.001
-    return p * exp(-u^2) * sin(pi*u) + p * exp(-v^2) * sin(pi*v)
+    A = 1    
+    return A * (phi(u) + phi(v))
 end
 
-function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where {Tag}
-    PS = (prolongate ∘ prolongate)(first(U).space)
-    (a, η, ϕ) = U
-    (a, η, ϕ) = (project(a, PS), project(η, PS), project(ϕ, PS)) 
-
-    D = derivative(PS)
-    I = identity(PS)
-    B = incomingboundary(PS) + outgoingboundary(PS)
-    A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
-    η = linsolve((I - B)*A + B, B*η)
-    @assert norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2) < idtol
-    PR = (restrict ∘ restrict)(PS)
-
-    return project(η, PR)
-end
-
+# FIXME: Are the boundary computations working as expected. i.e. are they converging?
 function computeUboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S2}} where {S1, S2}
     a0 = extractUboundary(Field(PS, (u,v)->2), :incoming) 
     η0 = extractUboundary(Field(PS, (u,v)->(v-u)), :incoming)
@@ -44,45 +36,26 @@ function computeVboundary(PS::ProductSpace{S1, S2})::NTuple{3, Field{S1}} where 
     return (a0, computeη((a0, η0, ϕ0)), ϕ0)
 end
 
-#----------------------------------------------
-# Compute the Ricci scalar and the Hawking mass 
-#----------------------------------------------
-function R(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return - (8 * (DU * ϕ) * (DV * ϕ)) / a^2  
+function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
+    a0 = Field(PS, (u,v)->2) 
+    η0 = Field(PS, (u,v)->v-u) 
+    ϕ0 = Field(PS, phi)
+    return (a0, η0, ϕ0)
 end
 
-function M(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return (η / 2) * (1 + (4 * (DU * η ) * (DV * η)) / η^2) 
-end
-
-function expansion(U::NTuple{3, Field{S}})::Field{S} where {S}
-    (a, η, ϕ) = U
-    DU, DV = derivative(first(U).space)
-    return (DV * η) 
-end
-
-#----------------------------------------------
-# Compute function on each patch 
-#----------------------------------------------
 function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd::NTuple{3, Field{S1}})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
     B = incomingboundary(PS)
     I = identity(PS)
     DU, DV = derivative(PS)
+    ∂U = combineUVboundary(ubnd, vbnd, :incoming)
+    btol = norm(map(norm ∘ lineconstraints, (ubnd, vbnd)))
 
-    function enforceregularity!(F::NTuple{3, Field{S}}, A::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
-	    r = Field(first(F).space, (u,v)->v-u) 
-        for index in CartesianIndices(r.value)
-            if r.value[index] == 0.0
-                F[1].value[index] = A[1].value[index]
-                F[2].value[index] = A[2].value[index]
-                F[3].value[index] = A[3].value[index]
-            end
-        end
-        return F 
+    function constr(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
+        (a, η, ϕ) = U
+        C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
+        C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
+        C  = sqrt(C1*C1 + C2*C2)
+        return (C, C, C)
     end
 
     function offaxis(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
@@ -90,10 +63,7 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
         F1 = DU*(DV*a) - (1/a)*(DU*a)*(DV*a) + (a/η)*(DU*(DV*η)) + (4pi*a)*(DU*ϕ)*(DV*ϕ)
         F2 = DU*(DV*η) + (1/η)*(DU*η)*(DV*η) + (1/4)*(1/η)*(a^2)
         F3 = DU*(DV*ϕ) + (1/η)*(DU*η)*(DV*ϕ) + (1/η)*(DV*η)*(DU*ϕ)
-        C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
-        C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
-        C  = sqrt(C1*C1 + C2*C2)
-        return λa .* (F1 + C, F2 + C, F3 + C)
+        return (F1, F2, F3) 
     end
 
     function onaxis(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
@@ -101,124 +71,104 @@ function computePatch(PS::ProductSpace{S1, S2}, ubnd::NTuple{3, Field{S2}}, vbnd
         A1 = (DU*η) * (DV*η) + (1/4) * a^2
         A2 = DU*η + DV*η
         A3 = DU*ϕ - DV*ϕ
-        return λb .* (A1, A2, A3)
+        return (A1, A2, A3)
     end
 
     function boundary(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
-        U = (B * U[1], B * U[2], B * U[3])
-        return λc .* (U .- combineUVboundary(ubnd, vbnd, :incoming))
+        return U - ∂U 
     end
 
     function residual(U::NTuple{3, Field{S}})::NTuple{3, Field{S}} where {S}
-        F = offaxis(U)
-        A = onaxis(U)
-        R = boundary(U)
-        return enforcebc!(enforceregularity!(F, A), B, R) 
-    end
-
-    function initialguess(PS::ProductSpace{S1, S2})::NTuple{3, Field{ProductSpace{S1, S2}}} where {S1, S2}
-        a0 = Field(PS, (u,v)->2) 
-        η0 = Field(PS, (u,v)->v-u) 
-        ϕ0 = Field(PS, phi)
-        return (a0, η0, ϕ0)
+        F = offaxis(U) + λ * constr(U)
+        enforceregularity!(F, onaxis(U))
+        enforcebc!(F, boundary(U)) 
+        return F
     end
 
     function f!(fvec::Array{T,1}, x::Array{T,1}) where {T}
         fvec[:] = reshapeFromTuple(residual(reshapeToTuple(PS, 3, x)))
     end
 
-    U0 = initialguess(PS)
-    sol = nlsolve(f!, reshapeFromTuple(U0); method=solver, autodiff=:forward, show_trace=debug>=4, extended_trace=false, ftol=1e-9, iterations=iter)
-    ToF = reshapeToTuple(PS, 3, sol.zero)
+    println("    norm(constraints)     = ", norm(constraints(initialguess(PS))))
+    println("    norm(residuals)       = ", norm(residuals(initialguess(PS))))
+
+    btol = 1e-9
+    s = nlsolve(f!, reshapeFromTuple(initialguess(PS)); method=solver, autodiff=:forward, show_trace=debug >= 3, ftol=max(stol, btol), iterations=40)
+    k = reshapeToTuple(PS, 3, s.zero)
 
     if debug >= 1
-        println("    Converged?            = ", converged(sol))
-        println("    maximum(Ricci Scalar) = ", maximum(R(ToF)))
-        println("    maximum(Hawking Mass) = ", maximum(M(ToF)))
-        println("    maximum(Constraints)  = ", norm(constraints(ToF)))
-        println("    minimum(expansion)    = ", minimum(expansion(ToF)))
+        println("    Converged?            = ", converged(s))
+        println("    maximum(Ricci Scalar) = ", maximum(R(k)))
+        println("    maximum(Hawking Mass) = ", maximum(M(k)))
+        println("    norm(constraints)     = ", norm(constraints(k)))
+        println("    norm(residuals)       = ", norm(residuals(k)))
+        println("    minimum(expansion)    = ", minimum(expansion(k)))
     end
 
-    return ToF
+    return k
 end
 
-#----------------------------------------------
-# Constraint equations and convergence 
-#----------------------------------------------
-function constraints(U::NTuple{3, Field})::NTuple{1, Field}
-    PS = prolongate(first(U).space)
-    DU, DV = derivative(PS)
-    a = project(U[1], PS) 
-    η = project(U[2], PS) 
-    ϕ = project(U[3], PS) 
-    C1 = DU*(DU*η) - (2/a)*(DU*a)*(DU*η) + (4pi*η)*(DU*ϕ)^2
-    C2 = DV*(DV*η) - (2/a)*(DV*a)*(DV*η) + (4pi*η)*(DV*ϕ)^2
-    return (sqrt(C1*C1 + C2*C2), )
-end
-
-function logconstraints(U::NTuple{3, Field})::NTuple{1, Field}
-    return log.(constraints(U))
-end
-
-function pconv(min, max)
+function pconv(range::StepRange, nh::Int=1)
     println("Testing p convergence")
-    n_ = collect(min:2:max)
+    n_ = collect(r)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         np = n_[index]
-        nh = 1
-        params = Parameters((np, np), (nh,nh), urange, vrange, nfields)
-        l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
+        params = Parameters((np, np), (nh,nh), urange, vrange, 3)
+        q = distribute(params, computePatch, computeUboundary, computeVboundary)
+        l_[index] = rmse(extract(map(constraints, q), 1))
         @printf("  n = %i, rmse = %e\n", n_[index], l_[index])
     end
-    plotpconv(n_, l_, "$path/collapse-constraints-pconv.pdf")
+    return (n_, l_)
 end
 
-function hconv(min, max)
+function hconv(range::StepRange, np::Int=4)
     println("Testing h convergence")
-    n_ = collect(min:max)
+    n_ = collect(range)
     l_ = zeros(size(n_))
     for index in CartesianIndices(n_) 
         nh = n_[index] = 2^n_[index]
-        np = 12
-        params = Parameters((np, np), (nh, nh), urange, vrange, nfields)
+        params = Parameters((np, np), (nh, nh), urange, vrange, 3)
         l_[index] = rmse(extract(map(constraints, distribute(params, computePatch, computeUboundary, computeVboundary)), 1))
         l0 = index[1] > 1 ? l_[index[1] - 1] : 1
         @printf("  n = %3i, rmse[2h] / rmse[h] = %e\n", n_[index], l0 / l_[index])
     end
-    plothconv(n_, l_, "$path/collapse-constraints-hconv.pdf")
+    return (n_, l_)
 end
 
 #-----------------------------------------
 # Setup simulation grid parameters, 
-# call distribute and plot solutions
 #-----------------------------------------
 npoints  = (18, 18)
-npatches = (3, 3) 
-urange   = (1.0, 3.0)
-vrange   = (5.0, 7.0)
-nfields  = 3
-nprocs   = 3
-solver   = :trust_region # :trust_region :Newton :Anderson
-debug    = 0
-idtol    = 1e-3
-exclude  = true
-params   = Parameters(npoints, npatches, urange, vrange, nfields)
+npatches = (1, 1) 
+urange   = (-1.0, 1.0) #(0.0, 1.0)  
+vrange   = (-1.0, 1.0) #(0.0, 1.0)  
+params   = Parameters(npoints, npatches, urange, vrange, 3)
+solver   = :trust_region 
+λ        = 0.0 
+itol     = 1e-9
+stol     = 1e-9
+debug    = 4
 path     = "."
-λa       = 1.0
-λb       = 1.0 
-λc       = 1.0
-λ        = 0.0
-iter     = 40
 
-# U = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
-# @show rmse(extract(map(constraints, U), 1))
-# contourf(extract(U, 3), 20, "$path/collase-psi.pdf")
-# contourf(extract(map(logconstraints, U), 1), 20, "$path/collapse-constraints.pdf")
+S = distribute(params, computePatch, computeUboundary, computeVboundary, debug)
+# @show rmse(extract(map(constraints, S), 1))
+# @show rmse(extract(map(residuals, S), 1))
 
-#-----------------------------------------
-# Check and plot convergence
-#-----------------------------------------
-# pconv(2, 22)
-hconv(3, 5)
+# contourf(extract(S, 1), 20, "$path/collase-a.pdf")
+# contourf(extract(S, 2), 20, "$path/collase-eta.pdf")
+# contourf(extract(S, 3), 20, "$path/collase-psi.pdf")
+# contourf(extract(map(constraints, S), 1), 20, "$path/collapse-constraints.pdf")
+# contourf(extract(map(residuals, S), 1), 20, "$path/collapse-residuals.pdf")
 
+# (np, lp) = pconv(4:2:16, 1)
+# (nh, lh) = hconv(0:1:4, 2)
+# plotpconv(np, lp, "$path/collapse-constraints-pconv.pdf")
+# plotpconv(nh, lh, "$path/collapse-constraints-hconv.pdf")
+
+# al = extract(S, 1)[1,1]
+# ηl = extract(S, 2)[1,1]
+# ψl = extract(S, 3)[1,1]
+# plotmodes(al, "$path/guv_l.pdf")
+# plotmodes(ηl, "$path/grr_l.pdf")
+# plotmodes(ψl, "$path/psi_l.pdf")
