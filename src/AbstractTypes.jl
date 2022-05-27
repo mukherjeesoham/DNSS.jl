@@ -8,6 +8,7 @@ abstract type Space{Tag, N} <: Manifold{Tag} end
 
 struct U end
 struct V end
+struct Singularity end
 
 """
     Struct to hold a field
@@ -40,7 +41,6 @@ mutable struct Parameters{T}
     nfields::Int
 end
 
-struct Singularity end
 
 struct ChebyshevGL{Tag, N, T} <: Space{Tag, N} 
     min::T

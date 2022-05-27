@@ -8,7 +8,6 @@
  Compute initial data for η, given a and ψ
 """
 function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where {Tag}
-    # FIXME: Why isn't this converging? Check computing guv if necessary
     PS = first(U).space
     D = derivative(PS)
     I = identity(PS)
@@ -16,10 +15,8 @@ function computeη(U::NTuple{3,Field{S}})::Field{S} where {S<:Space{Tag}} where 
     B = incomingboundary(PS) + outgoingboundary(PS)
     A = D*D - (2/a)*(D*a)*D + 4pi*(D*ϕ)^2*I
     η = linsolve((I - B)*A + B, B*η)
-    @show norm(D*(D*η) - (2/a)*(D*a)*(D*η) + (4pi*η)*(D*ϕ)^2)
     return η
 end
-
 
 """
     Compute the Ricci scalar

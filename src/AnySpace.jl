@@ -195,3 +195,7 @@ function  ⊕(u::Field{S}, v::Field{S})::Field{S} where {S}
     B = incomingboundary(u.space)
     return (I - B)*v + B*u
 end
+
+function Base. isnan(u::Field{S})::Bool where {S}
+    return any(isnan.(u.value))
+end

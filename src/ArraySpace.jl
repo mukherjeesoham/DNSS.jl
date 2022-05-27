@@ -62,7 +62,7 @@ For each individual patch use spectral integration, and for the whole
 grid use a standard L2 norm.
 """
 function rmse(AoF::Matrix{Field})::Real
-    return norm(norm.(AoF))
+    return norm(norm.(AoF) / size(AoF)[1])
 end
 
 function Base. *(λ::Number, U::NTuple{N, Field})::NTuple{N, Field} where {N}

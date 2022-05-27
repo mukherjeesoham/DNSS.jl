@@ -10,7 +10,7 @@ module DNSS
 
     export Manifold, Space, ProductSpace, SingleSpaces,
            Field, Operator, U, V, Parameters
-    export plot, contourf, plotpconv, plothconv, plotmodes
+    export save
     export extract, range, Field, rmse
     export reshapeFromTuple, reshapeToTuple, enforcebc!, enforceregularity!
     export setup, distribute, distribute_
@@ -29,7 +29,7 @@ module DNSS
     include("BoundaryUtils.jl")
     include("SolverUtils.jl")
     include("Distribute.jl")
-    include("Plots.jl")
+    include("Save.jl")
     include("SphericalSymmetry.jl")
 end
 
